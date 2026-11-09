@@ -381,7 +381,7 @@ mod tests {
             <rect width="24" height="24" fill="#ff0000"/>
         </svg>"##;
         let mut path = std::env::temp_dir();
-        path.push(format!("hyprexpose-icon-test-{}.svg", std::process::id()));
+        path.push(format!("hyprview-icon-test-{}.svg", std::process::id()));
         std::fs::write(&path, svg).unwrap();
 
         let surface = decode_svg(&path, 20).expect("decode_svg should succeed");
@@ -393,14 +393,14 @@ mod tests {
 
     #[test]
     fn decode_svg_returns_none_for_missing_file() {
-        let path = std::path::Path::new("/nonexistent/hyprexpose-icon-test.svg");
+        let path = std::path::Path::new("/nonexistent/hyprview-icon-test.svg");
         assert!(decode_svg(path, 20).is_none());
     }
 
     #[test]
     fn find_desktop_icon_name_matches_by_filename_and_reads_icon() {
         let dir =
-            std::env::temp_dir().join(format!("hyprexpose-desktop-test-{}", std::process::id()));
+            std::env::temp_dir().join(format!("hyprview-desktop-test-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(
             dir.join("thunar.desktop"),
@@ -420,7 +420,7 @@ mod tests {
 
     #[test]
     fn find_desktop_icon_name_returns_none_when_no_file_matches() {
-        let dirs = vec![std::path::PathBuf::from("/nonexistent/hyprexpose-apps")];
+        let dirs = vec![std::path::PathBuf::from("/nonexistent/hyprview-apps")];
         let candidates = vec!["nope".to_string()];
         assert_eq!(find_desktop_icon_name(&dirs, &candidates), None);
     }

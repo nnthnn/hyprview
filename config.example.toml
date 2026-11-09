@@ -1,5 +1,5 @@
-# hyprexpose example configuration
-# Copy to ~/.config/hyprexpose/config.toml and edit as needed.
+# hyprview example configuration
+# Copy to ~/.config/hyprview/config.toml and edit as needed.
 # All keys are optional — omitted keys fall back to the defaults shown here.
 
 # ── Appearance ────────────────────────────────────────────────────────────────

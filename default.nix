@@ -13,7 +13,7 @@
 }:
 
 rustPlatform.buildRustPackage rec {
-  pname = "hyprexpose";
+  pname = "hyprview";
   version = "0.1.0";
 
   src = ./.;
@@ -39,14 +39,14 @@ rustPlatform.buildRustPackage rec {
   ];
 
   postInstall = ''
-    install -Dm644 config.example.toml $out/share/hyprexpose/config.example.toml
+    install -Dm644 config.example.toml $out/share/hyprview/config.example.toml
   '';
 
   meta = with lib; {
     description = "Lightweight workspace overview for Hyprland and Sway";
-    homepage = "https://github.com/ThiagoAVicente/hyprexpose";
+    homepage = "https://github.com/nnthnn/hyprview";
     license = licenses.mit;
     platforms = platforms.linux;
-    mainProgram = "hyprexpose";
+    mainProgram = "hyprview";
   };
 }

@@ -1,9 +1,12 @@
-# hyprexpose
+<p align="center">
+  <img src="assets/logo.svg" width="120" alt="Hyprview logo">
+</p>
 
-[![AUR](https://img.shields.io/aur/version/hyprexpose-git)](https://aur.archlinux.org/packages/hyprexpose-git)
+# Hyprview
+
 ![vibecoded](https://img.shields.io/badge/vibecoded-ff69b4?style=flat&logo=sparkles&logoColor=white)
 
-Lightweight workspace overview for [Hyprland](https://hyprland.org) and [Sway](https://swaywm.org). Shows active workspaces with real window thumbnails, navigate with keyboard, press Enter to switch.
+Lightweight workspace overview for [Hyprland](https://hyprland.org) and [Sway](https://swaywm.org). Shows active workspaces with real window thumbnails, navigate with keyboard or mouse, press Enter to switch.
 
 > **Requires Hyprland >= 0.55** (uses the Lua-based IPC dispatch introduced in that release).
 
@@ -17,6 +20,9 @@ Lightweight workspace overview for [Hyprland](https://hyprland.org) and [Sway](h
 - Real window thumbnails via hyprland-toplevel-export protocol (Hyprland only)
 - Fullscreen overlay using wlr-layer-shell
 - Keyboard navigation (arrow keys / hjkl)
+- Tab / Shift+Tab cycling through every window, starting from the focused one
+- Type-to-filter windows and workspaces
+- App icons on window thumbnails
 - Move the active window to another workspace with `m`
 - Runs as a daemon, toggled with SIGUSR1 (~0% CPU when hidden)
 - Direct IPC via the compositor's unix socket (no process spawning)
@@ -44,54 +50,48 @@ apt install cargo libwayland-dev libpango1.0-dev
 cargo build --release
 ```
 
-The binary is at `target/release/hyprexpose`.
+The binary is at `target/release/hyprview`.
 
 ## Usage
 
 Start the daemon:
 
 ```
-hyprexpose &
+hyprview &
 ```
 
 Disable window previews (uses colored rectangles instead):
 
 ```
-hyprexpose --no-preview &
+hyprview --no-preview &
 ```
 
 Enable mouse navigation (hover to select, left-click to switch, right-click to move active window):
 
 ```
-hyprexpose --allow-mouse &
+hyprview --allow-mouse &
 ```
 
-Flags can be combined: `hyprexpose --no-preview --allow-mouse &`.
+Flags can be combined: `hyprview --no-preview --allow-mouse &`.
 
 Toggle the overlay:
 
 ```
-pkill -SIGUSR1 hyprexpose
+pkill -SIGUSR1 hyprview
 ```
 
 Add to your Hyprland config:
 
 ```ini
-exec-once = hyprexpose
-bind = $mainMod, Tab, exec, pkill -SIGUSR1 hyprexpose
+exec-once = hyprview
+bind = $mainMod, Tab, exec, pkill -SIGUSR1 hyprview
 ```
 
 Or to your Sway config:
 
 ```
-exec hyprexpose
-bindsym $mod+Tab exec pkill -SIGUSR1 hyprexpose
-```
-
-## Install (AUR)
-
-```
-yay -S hyprexpose-git
+exec hyprview
+bindsym $mod+Tab exec pkill -SIGUSR1 hyprview
 ```
 
 ## Controls
@@ -99,26 +99,32 @@ yay -S hyprexpose-git
 | Key | Action |
 |---|---|
 | Arrow keys / hjkl | Navigate workspaces |
-| Enter | Switch to selected workspace |
+| Tab / Shift+Tab | Cycle through windows (starting from the focused one) |
+| Enter | Switch to the highlighted window, or selected workspace |
+| 1–9 | Jump directly to a workspace |
+| Type | Filter windows and workspaces |
+| Backspace | Delete the last filter character |
 | `m` | Move active window to selected workspace |
-| Escape | Close overlay |
+| Delete | Close hovered window (or the single filter match) |
+| Escape | Clear filter/highlight, then close overlay |
+| Mouse (`--allow-mouse`) | Hover to select, left-click to switch, right-click to move |
 
 ## Configuration
 
 Copy the example config and edit to taste:
 
 ```
-mkdir -p ~/.config/hyprexpose
-cp config.example.toml ~/.config/hyprexpose/config.toml
+mkdir -p ~/.config/hyprview
+cp config.example.toml ~/.config/hyprview/config.toml
 ```
 
-Config is loaded from `$XDG_CONFIG_HOME/hyprexpose/config.toml` (falls back to `~/.config/hyprexpose/config.toml`). All fields are optional — defaults are used for anything not specified.
+Config is loaded from `$XDG_CONFIG_HOME/hyprview/config.toml` (falls back to `~/.config/hyprview/config.toml`). On first run, an existing `~/.config/hyprexpose/config.toml` is migrated automatically. All fields are optional — defaults are used for anything not specified.
 
 See [`config.example.toml`](config.example.toml) for all available options with inline documentation.
 
 ## How it works
 
-hyprexpose runs as a background daemon that does nothing until it receives SIGUSR1. On signal, it:
+Hyprview runs as a background daemon that does nothing until it receives SIGUSR1. On signal, it:
 
 1. Queries the compositor's IPC socket for active workspaces and clients (Hyprland socket or i3-ipc on Sway)
 2. Captures window thumbnails via the hyprland-toplevel-export protocol (Hyprland only)
@@ -127,4 +133,4 @@ hyprexpose runs as a background daemon that does nothing until it receives SIGUS
 
 ## License
 
-MIT
+MIT. Hyprview is a fork of [hyprexpose](https://github.com/ThiagoAVicente/hyprexpose) by ThiagoAVicente.

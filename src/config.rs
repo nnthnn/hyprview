@@ -273,10 +273,11 @@ pub struct Config {
 const EXAMPLE_CONFIG: &str = include_str!("../config.example.toml");
 
 impl Config {
-    /// Load from `$XDG_CONFIG_HOME/hyprexpose/config.toml` (falls back to
-    /// `~/.config/hyprexpose/config.toml`). On first run the file is created
-    /// from the bundled `config.example.toml` so users have a template to
-    /// edit. Errors creating the file are ignored — defaults are used.
+    /// Load from `$XDG_CONFIG_HOME/hyprview/config.toml` (falls back to
+    /// `~/.config/hyprview/config.toml`). On first run the file is seeded from
+    /// an existing pre-rename `hyprexpose` config if present, otherwise from
+    /// the bundled `config.example.toml`. Errors creating the file are
+    /// ignored — defaults are used.
     pub fn load() -> Self {
         let path = config_path();
 
@@ -284,8 +285,17 @@ impl Config {
             if let Some(parent) = path.parent() {
                 let _ = std::fs::create_dir_all(parent);
             }
-            if std::fs::write(&path, EXAMPLE_CONFIG).is_ok() {
-                eprintln!("hyprexpose: created default config at {}", path.display());
+            let legacy = legacy_config_path();
+            if legacy.exists() {
+                if std::fs::copy(&legacy, &path).is_ok() {
+                    eprintln!(
+                        "hyprview: migrated config from {} to {}",
+                        legacy.display(),
+                        path.display()
+                    );
+                }
+            } else if std::fs::write(&path, EXAMPLE_CONFIG).is_ok() {
+                eprintln!("hyprview: created default config at {}", path.display());
             }
         }
 
@@ -299,7 +309,7 @@ impl Config {
         match toml::from_str::<Config>(&text) {
             Ok(c) => c,
             Err(e) => {
-                eprintln!("hyprexpose: config parse error in {}: {e}", path.display());
+                eprintln!("hyprview: config parse error in {}: {e}", path.display());
                 Self::default()
             }
         }
@@ -334,14 +344,14 @@ impl Config {
         };
         for (key, val) in &root {
             if !known_sections.contains(&key.as_str()) {
-                eprintln!("hyprexpose: config warning in {path}: unknown section [{key}]");
+                eprintln!("hyprview: config warning in {path}: unknown section [{key}]");
                 continue;
             }
             if let toml::Value::Table(section) = val {
                 let known = SECTIONS.iter().find(|(s, _)| s == key).map(|(_, k)| *k).unwrap_or(&[]);
                 for field in section.keys() {
                     if !known.contains(&field.as_str()) {
-                        eprintln!("hyprexpose: config warning in {path}: unknown key [{key}].{field}");
+                        eprintln!("hyprview: config warning in {path}: unknown key [{key}].{field}");
                     }
                 }
             }
@@ -369,10 +379,18 @@ fn home_dir() -> PathBuf {
 }
 
 pub fn config_path() -> PathBuf {
-    let base = std::env::var("XDG_CONFIG_HOME")
+    config_base().join("hyprview").join("config.toml")
+}
+
+/// Pre-rename config location, read once to migrate an existing setup.
+fn legacy_config_path() -> PathBuf {
+    config_base().join("hyprexpose").join("config.toml")
+}
+
+fn config_base() -> PathBuf {
+    std::env::var("XDG_CONFIG_HOME")
         .map(PathBuf::from)
-        .unwrap_or_else(|_| home_dir().join(".config"));
-    base.join("hyprexpose").join("config.toml")
+        .unwrap_or_else(|_| home_dir().join(".config"))
 }
 
 #[cfg(test)]

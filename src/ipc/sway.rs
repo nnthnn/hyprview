@@ -286,7 +286,7 @@ mod tests {
 
     #[test]
     fn parses_workspaces_and_tree_from_mock_socket() {
-        let dir = std::env::temp_dir().join(format!("hyprexpose-test-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("hyprview-test-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let sock = dir.join("sway.sock");
         let _ = std::fs::remove_file(&sock);

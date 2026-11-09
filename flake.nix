@@ -1,5 +1,5 @@
 {
-  description = "Lightweight workspace overview for Hyprland and Sway";
+  description = "Hyprview — lightweight workspace overview for Hyprland and Sway";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";

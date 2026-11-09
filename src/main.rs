@@ -911,7 +911,7 @@ impl Dispatch<HyprlandToplevelExportFrameV1, ()> for AppState {
 // ── Wayland surface management ───────────────────────────────────────────────
 
 fn create_shm_fd(size: usize) -> Option<OwnedFd> {
-    let name = c"hyprexpose";
+    let name = c"hyprview";
     let raw = unsafe { libc::memfd_create(name.as_ptr(), libc::MFD_CLOEXEC) };
     if raw < 0 {
         return None;
@@ -937,7 +937,7 @@ fn show(state: &mut AppState, qh: &QueueHandle<AppState>) -> bool {
         &wl_surf,
         None,
         zwlr_layer_shell_v1::Layer::Top,
-        "hyprexpose".to_owned(),
+        "hyprview".to_owned(),
         qh,
         (),
     );
@@ -1116,7 +1116,7 @@ fn advance_capture(conn: &Connection, state: &mut AppState, qh: &QueueHandle<App
 
             let size = (cap.stride * cap.height) as usize;
             let raw_fd = unsafe {
-                libc::memfd_create(c"hyprexpose-cap".as_ptr(), libc::MFD_CLOEXEC)
+                libc::memfd_create(c"hyprview-cap".as_ptr(), libc::MFD_CLOEXEC)
             };
             if raw_fd < 0 { active.frame.destroy(); return; }
             unsafe { libc::ftruncate(raw_fd, size as libc::off_t) };
@@ -1206,7 +1206,7 @@ fn advance_capture(conn: &Connection, state: &mut AppState, qh: &QueueHandle<App
 
 fn lock_file_path() -> String {
     let runtime_dir = std::env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| "/tmp".into());
-    format!("{runtime_dir}/hyprexpose.lock")
+    format!("{runtime_dir}/hyprview.lock")
 }
 
 fn try_lock_instance() -> Option<std::fs::File> {
@@ -1246,7 +1246,7 @@ fn main() {
             "--no-preview" => no_preview = true,
             "--allow-mouse" => allow_mouse = true,
             _ => {
-                eprintln!("Usage: hyprexpose [--toggle] [--no-preview] [--allow-mouse]");
+                eprintln!("Usage: hyprview [--toggle] [--no-preview] [--allow-mouse]");
                 std::process::exit(1);
             }
         }
@@ -1296,19 +1296,19 @@ fn main() {
     eq.roundtrip(&mut state).expect("Wayland roundtrip failed");
 
     if state.compositor.is_none() || state.shm.is_none() || state.layer_shell.is_none() {
-        eprintln!("hyprexpose: missing required Wayland globals");
+        eprintln!("hyprview: missing required Wayland globals");
         std::process::exit(1);
     }
 
     if state.toplevel_export.is_none() && !state.no_preview {
         eprintln!(
-            "hyprexpose: hyprland-toplevel-export protocol unavailable; \
+            "hyprview: hyprland-toplevel-export protocol unavailable; \
              window previews disabled (colored rectangles will be used)"
         );
     }
 
     eprintln!(
-        "hyprexpose: daemon running on {} (SIGUSR1 to toggle, SIGHUP to reload config)",
+        "hyprview: daemon running on {} (SIGUSR1 to toggle, SIGHUP to reload config)",
         ipc::compositor().name()
     );
 
@@ -1349,7 +1349,7 @@ fn main() {
             state.keys = ResolvedKeys::from_config(&new_config.keybindings);
             state.config = new_config;
             if state.visible { state.needs_redraw = true; }
-            eprintln!("hyprexpose: config reloaded");
+            eprintln!("hyprview: config reloaded");
         }
 
         if G_TOGGLE.swap(false, Ordering::Relaxed) {
