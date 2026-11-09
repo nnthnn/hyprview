@@ -27,6 +27,32 @@ test:
 build:
 	cargo build --release --locked
 
+# Tag the Cargo.toml version and push it to trigger the release workflow.
+release: check
+	#!/usr/bin/env bash
+	set -euo pipefail
+	version="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1)"
+	if [ -z "$version" ]; then
+		echo "error: could not read version from Cargo.toml" >&2
+		exit 1
+	fi
+	if [ -n "$(git status --porcelain)" ]; then
+		echo "error: working tree is dirty; commit or stash changes first" >&2
+		exit 1
+	fi
+	branch="$(git rev-parse --abbrev-ref HEAD)"
+	if [ "$branch" != "main" ]; then
+		echo "error: cut releases from main (currently on ${branch})" >&2
+		exit 1
+	fi
+	if git rev-parse -q --verify "refs/tags/v${version}" >/dev/null; then
+		echo "error: tag v${version} already exists" >&2
+		exit 1
+	fi
+	echo "Tagging v${version}"
+	git tag -a "v${version}" -m "v${version}"
+	git push origin "v${version}"
+
 # Preview the project site locally at http://localhost:8000.
 site:
 	rm -rf target/site-preview

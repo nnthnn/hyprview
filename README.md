@@ -243,6 +243,7 @@ A [`justfile`](justfile) wraps the common tasks:
 just check         # format + lint + test
 just fmt           # apply rustfmt
 just build         # release build
+just release       # tag the Cargo.toml version and push it
 just audit         # cargo-deny advisory check
 just install       # cargo install into ~/.cargo/bin
 just install-hooks # enable the tracked git hooks
@@ -273,6 +274,10 @@ After editing the `PKGBUILD`, regenerate `.SRCINFO` with:
 cd packaging/aur/hyprview-git
 makepkg --printsrcinfo > .SRCINFO
 ```
+
+Releases are cut by pushing a `vX.Y.Z` tag that matches `Cargo.toml`;
+[`.github/workflows/release.yml`](.github/workflows/release.yml) validates the
+tag and attaches a stable source tarball to the GitHub release.
 
 ## License
 

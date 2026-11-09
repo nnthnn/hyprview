@@ -1,0 +1,76 @@
+name: Release
+
+# Cut a release by pushing a `vX.Y.Z` tag; the workflow does the rest:
+#   1. checks the tag matches Cargo.toml,
+#   2. attaches a stable source tarball (git archive) to the GitHub release.
+#
+# Unlike GitHub's auto-generated /archive/ tarballs, a release asset's bytes
+# (and therefore its checksum) do not change, so downstream packagers can pin
+# it safely.
+#
+# There is no AUR publish job: packaging/aur/hyprview-git is a VCS package
+# that builds from `git+https://github.com/nnthnn/hyprview.git`, so it picks up
+# new commits (including tagged ones) without any per-release PKGBUILD update.
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  source:
+    name: Build source tarball
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      sha256: ${{ steps.tarball.outputs.sha256 }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve and validate version
+        id: meta
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          cargo_version="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1)"
+          if [ -z "$cargo_version" ] || [ "$version" != "$cargo_version" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match Cargo.toml version '${cargo_version}'"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Build stable source tarball
+        id: tarball
+        run: |
+          set -euo pipefail
+          version="${{ steps.meta.outputs.version }}"
+          tarball="hyprview-${version}.tar.gz"
+          # --prefix keeps the extracted directory identical to GitHub's
+          # /archive/ tarball, so any PKGBUILD's `cd "$pkgname-$pkgver"` is valid.
+          git archive --format=tar.gz --prefix="hyprview-${version}/" -o "$tarball" HEAD
+          sha256="$(sha256sum "$tarball" | cut -d' ' -f1)"
+          echo "sha256=$sha256" >> "$GITHUB_OUTPUT"
+          echo "Built ${tarball} (sha256 ${sha256})"
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          version="${{ steps.meta.outputs.version }}"
+          tarball="hyprview-${version}.tar.gz"
+          if gh release view "v${version}" >/dev/null 2>&1; then
+            gh release upload "v${version}" "$tarball" --clobber
+          else
+            gh release create "v${version}" "$tarball" \
+              --title "v${version}" \
+              --generate-notes
+          fi
