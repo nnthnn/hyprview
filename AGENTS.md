@@ -124,9 +124,10 @@ usually produces hangs, leaked buffers, or a dead overlay.
 - `src/ipc.rs` is the compositor abstraction. New compositor-specific behaviour
   belongs in `hyprland.rs` / `sway.rs` behind a `Compositor` match, not in
   `main.rs`.
-- The protocol XML files in `protocols/` are vendored inputs for
-  `wayland-scanner`; `build.rs` only re-runs when they change. Don't edit the
-  generated bindings by hand.
+- `protocols/hyprland-toplevel-export-v1.xml` is the vendored input for
+  `wayland-scanner`; `build.rs` re-runs when it changes. Don't edit the generated
+  bindings by hand. `wlr-layer-shell` bindings come from the
+  `wayland-protocols-wlr` crate, not a local XML.
 - `docs/superpowers/` contains historical design notes and implementation
   plans. They are useful context but may describe planned behavior that has
   since changed (for example, Tab shifting is implemented with raw Shift
