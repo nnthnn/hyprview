@@ -27,6 +27,14 @@ test:
 build:
 	cargo build --release --locked
 
+# Preview the project site locally at http://localhost:8000.
+site:
+	rm -rf target/site-preview
+	mkdir -p target/site-preview/assets
+	cp site/index.html site/style.css target/site-preview/
+	cp assets/logo.svg demo.gif target/site-preview/assets/
+	python3 -m http.server -d target/site-preview 8000
+
 # Install the release binary to ~/.cargo/bin.
 install:
 	cargo install --path . --locked --force

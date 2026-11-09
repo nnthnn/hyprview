@@ -5,15 +5,15 @@
 <h1 align="center">hyprview</h1>
 
 <p align="center">
-  <strong>A fast, keyboard-driven workspace overview for Hyprland and Sway.</strong><br>
+  <strong>A fast, keyboard-driven workspace overview for Hyprland.</strong><br>
   Live window thumbnails, type-to-filter, and app icons — no compositor plugin required.
 </p>
 
 <p align="center">
   <a href="https://github.com/nnthnn/hyprview/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/nnthnn/hyprview/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://nnthnn.github.io/hyprview/"><img alt="Website" src="https://img.shields.io/badge/website-hyprview-8fa8ff"></a>
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
   <img alt="Hyprland 0.55+" src="https://img.shields.io/badge/Hyprland-0.55%2B-58d3f7">
-  <img alt="Sway" src="https://img.shields.io/badge/Sway-supported-4cae4f">
 </p>
 
 <p align="center">
@@ -39,16 +39,16 @@ opt in, the mouse.
 - **Hover tooltip** with the app icon, name, class, and window title
 - **Optional mouse support** — hover to select, left-click to focus/switch, right-click to move
 - **Config hot reload** when the config file changes (or on `SIGHUP`)
-- **Hyprland and Sway** support from one binary, auto-detected at startup
 - **Daemon lifetime** with a single-instance lock and near-zero CPU while hidden
 - **No process spawning** — workspace/window operations go straight over the compositor's IPC socket
 
 ## Requirements
 
-- Linux with a Wayland compositor that supports `wlr-layer-shell` (Hyprland and Sway do)
+- Linux with a Wayland compositor that supports `wlr-layer-shell`
 - **Hyprland 0.55+** for the full feature set, including live thumbnails
-- **Sway** works for everything except thumbnails; windows are drawn as coloured
-  placeholders with their app id (the same fallback as `--no-preview`)
+- **Sway** works with reduced functionality: there are no live thumbnails, so
+  windows are drawn as coloured placeholders with their app id (the same
+  fallback as `--no-preview`)
 - No GTK, Qt, or other toolkit at runtime
 
 ## Install
@@ -130,13 +130,28 @@ instance is a no-op — the existing instance keeps running.
 
 ### Hyprland config
 
-```ini
-# ~/.config/hypr/hyprland.conf
-exec-once = hyprview
-bind = $mainMod, Tab, exec, hyprview --toggle
+Hyprland 0.55+ reads `~/.config/hypr/hyprland.lua`. If you have migrated to the
+Lua config, add the daemon to your startup and bind a key to the toggle:
+
+```lua
+-- ~/.config/hypr/hyprland.lua
+hl.on("hyprland.start", function()
+    hl.exec_cmd("hyprview")
+end)
+
+hl.bind("SUPER + Tab", hl.dsp.exec_cmd("hyprview --toggle"))
 ```
 
+Replace `SUPER` with your `mainMod` if you use a different modifier. If
+`hyprview` is installed somewhere Hyprland does not see on `PATH` (for example
+`~/.local/bin`), use the full path in `hl.exec_cmd`. Hyprland loads
+`hyprland.lua` in preference to a legacy `hyprland.conf`, so the old
+`exec-once`/`bind` syntax will not take effect while a Lua config exists.
+
 ### Sway config
+
+Sway is auto-detected via `SWAYSOCK`/`I3SOCK` and runs in fallback mode without
+live thumbnails:
 
 ```
 # ~/.config/sway/config
@@ -187,77 +202,8 @@ The file is watched for changes and reloaded live. You can also send `SIGHUP`
 to force a reload. Unknown sections and keys are reported on stderr so typos
 don't silently fall back to defaults.
 
-See [`config.example.toml`](config.example.toml) for the annotated version of
-everything below.
-
-### `[appearance]`
-
-| Key | Default | Meaning |
-| --- | --- | --- |
-| `font` | `"Sans 11"` | Font for window labels inside cards |
-| `label_font` | `"Sans Bold 13"` | Font for workspace labels |
-| `tooltip_font` | `"Sans"` | Base family for the hover tooltip (size and weight are appended) |
-| `card_padding` | `24.0` | Gap between cards and the screen edge (px) |
-| `card_radius` | `12.0` | Card corner radius (px) |
-| `max_card_width` | `480.0` | Maximum card width (px) |
-| `max_card_height` | `320.0` | Maximum card height (px) |
-| `label_height` | `32.0` | Height reserved for the workspace label (px) |
-| `thumb_padding` | `8.0` | Padding between the card edge and window area (px) |
-| `select_border` | `3.0` | Selection highlight border width (px) |
-| `window_gap` | `4.0` | Gap between adjacent window thumbnails (px) |
-| `columns` | `0` | Fixed number of grid columns; `0` = auto (square root of workspace count) |
-| `show_app_icons` | `true` | Draw app icons on thumbnails and tooltips |
-| `icon_size` | `20.0` | App icon size (px), clamped to 8–256 |
-
-### `[colors]`
-
-Colors accept `"#rrggbb"`, `"#rrggbbaa"`, or `[r, g, b, a]` with values in
-`0.0`–`1.0`.
-
-| Key | Default | Meaning |
-| --- | --- | --- |
-| `background` | `"#000000bf"` | Fullscreen dim overlay |
-| `card` | `"#1f1f26f2"` | Workspace card background |
-| `selection` | `"#6699ffe6"` | Selected card border |
-| `label` | `"#d9d9e6ff"` | Workspace label text |
-| `empty_label` | `"#80808094"` | `(empty)` text in empty cards |
-| `window_label` | `"#ffffffe6"` | Window class/title text |
-| `active_window` | `"#ffbf33f2"` | Border around the active window (the one `m` moves) |
-| `window_border` | `"#ffffff26"` | Subtle border around every thumbnail |
-| `hover_border` | `"#ffffff99"` | Border around the hovered thumbnail |
-| `hover_overlay` | `"#ffffff26"` | Brightness tint over the hovered thumbnail |
-| `tooltip_background` | `"#0f0f1af2"` | Tooltip background |
-| `tooltip_name` | `"#fffff2f2"` | Tooltip app name |
-| `tooltip_class` | `"#b2b2bfcc"` | Tooltip window class |
-| `tooltip_title` | `"#d9d9e7e5"` | Tooltip window title |
-
-### `[behavior]`
-
-| Key | Default | Meaning |
-| --- | --- | --- |
-| `no_preview` | `false` | Same as `--no-preview` |
-| `switch_on_move` | `true` | After `m`, switch to the destination workspace and close |
-| `allow_mouse` | `false` | Enable mouse navigation; `--allow-mouse` forces it on |
-| `show_empty_workspaces` | `false` | Show cards for workspaces with no windows |
-
-### `[keybindings]`
-
-Each action accepts one key name or an array of names. Supported names are
-`"Escape"`, `"Return"`/`"Enter"`, `"Tab"`, `"Left"`, `"Right"`, `"Up"`,
-`"Down"`, `"Delete"`, `"space"`, and any single printable character. Number
-keys `1`–`9` are fixed and cannot be remapped.
-
-| Key | Default | Action |
-| --- | --- | --- |
-| `close` | `"Escape"` | Close overlay (after clearing highlight/filter) |
-| `confirm` | `"Return"` | Focus highlighted window or switch workspace |
-| `left` | `["Left", "h"]` | Previous workspace |
-| `right` | `["Right", "l"]` | Next workspace |
-| `up` | `["Up", "k"]` | Workspace above |
-| `down` | `["Down", "j"]` | Workspace below |
-| `move_window` | `"m"` | Move the active window to the selected workspace |
-| `close_window` | `"Delete"` | Close the hovered or single-match window |
-| `tab` | `"Tab"` | Cycle window highlight; hold Shift to reverse |
+See [`docs/configuration.md`](docs/configuration.md) for the full reference, or
+[`config.example.toml`](config.example.toml) for the annotated file.
 
 ## How it works
 
@@ -302,7 +248,12 @@ just install       # cargo install into ~/.cargo/bin
 just install-hooks # enable the tracked git hooks
 just package       # build the Arch package
 just srcinfo       # regenerate the AUR .SRCINFO
+just site          # preview the project site at http://localhost:8000
 ```
+
+The project site is plain HTML/CSS in [`site/`](site/);
+[`.github/workflows/pages.yml`](.github/workflows/pages.yml) deploys it to
+GitHub Pages.
 
 CI runs the same format, clippy, build, test, and advisory-audit checks. To have
 the fast checks run locally before code leaves your machine, enable the tracked

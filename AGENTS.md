@@ -1,8 +1,10 @@
 # AGENTS.md
 
 Guidance for coding agents working in the hyprview repository. User-facing
-documentation is in [`README.md`](README.md); the full configuration reference
-is [`config.example.toml`](config.example.toml).
+documentation is in [`README.md`](README.md) and the static site in
+[`site/`](site/); the full configuration reference is
+[`docs/configuration.md`](docs/configuration.md), with
+[`config.example.toml`](config.example.toml) as the annotated file.
 
 ## What this is
 
@@ -17,6 +19,10 @@ It supports two compositors, detected at startup from the environment:
 - **Sway** (`SWAYSOCK`/`I3SOCK`): workspace/client data over the i3 IPC protocol.
   Sway has no toplevel-export equivalent, so windows are drawn as coloured
   placeholder rectangles.
+
+Hyprland 0.55+ reads `~/.config/hypr/hyprland.lua`; when that file exists the
+legacy `hyprland.conf`/hyprlang config is not loaded. Keep Hyprland setup
+snippets in the README in Lua syntax.
 
 The binary is a single crate with no library target. `src/main.rs` owns the
 Wayland client, event loop, state, input handling, and thumbnail capture;
@@ -44,7 +50,12 @@ just install  # cargo install into ~/.cargo/bin
 just install-hooks # enable the tracked git hooks
 just package  # build the tracked Arch package
 just srcinfo  # regenerate the AUR .SRCINFO
+just site     # preview the project site at http://localhost:8000
 ```
+
+The project site is plain HTML/CSS in `site/`. `.github/workflows/pages.yml`
+stages it with `assets/logo.svg` and `demo.gif` and deploys it to GitHub Pages;
+`just site` stages the same files into `target/site-preview/` for local preview.
 
 AUR packaging lives in `packaging/aur/hyprview-git/`. Regenerate `.SRCINFO` with
 `makepkg --printsrcinfo > .SRCINFO` after editing the `PKGBUILD`.
@@ -85,8 +96,8 @@ usually produces hangs, leaked buffers, or a dead overlay.
 - **Config precedence is defaults < file < CLI flags.** CLI flags are OR-ed
   with config values (`no_preview || config.behavior.no_preview`). A new field
   must be added in three places: the struct + `Default`, the `SECTIONS` table in
-  `warn_unknown_keys`, and `config.example.toml` (plus the README if it is
-  user-visible).
+  `warn_unknown_keys`, and `config.example.toml` (plus `docs/configuration.md`
+  and the README if it is user-visible).
 - **`config.example.toml` is compiled in.** `config.rs` uses `include_str!` to
   seed a user's config on first run, so editing it changes runtime behaviour.
   It also falls back to the pre-rename `~/.config/hyprexpose/config.toml`.
@@ -139,7 +150,8 @@ usually produces hangs, leaked buffers, or a dead overlay.
   plans. They are useful context but may describe planned behavior that has
   since changed (for example, Tab shifting is implemented with raw Shift
   keycodes, not two configurable bindings). Treat the code as current.
-- Keep `README.md`, `config.example.toml`, and the config structs in sync. The
-  README controls table must match `KeybindingsConfig` defaults.
+- Keep `README.md`, `docs/configuration.md`, `config.example.toml`, and the
+  config structs in sync. The README controls table and the keybindings table
+  in `docs/configuration.md` must match `KeybindingsConfig` defaults.
 - Commit messages: imperative subject, body explaining the reasoning. Match the
   existing history (`git log --oneline`).
