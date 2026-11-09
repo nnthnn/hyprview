@@ -9,6 +9,18 @@ homepage = "https://nnthnn.github.io/hyprview/"
 readme = "README.md"
 keywords = ["hyprland", "sway", "wayland", "workspace", "overview"]
 categories = ["desktop"]
+include = [
+    "src/**",
+    "protocols/**",
+    "build.rs",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "config.example.toml",
+    "docs/configuration.md",
+    "docs/development.md",
+]
 
 [[bin]]
 name = "hyprview"
