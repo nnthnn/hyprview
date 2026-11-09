@@ -30,7 +30,8 @@ and `src/ipc/sway.rs`; `src/render.rs` draws with Cairo/Pango; `src/icons.rs`
 resolves and caches app icons; `src/config.rs` owns TOML parsing and defaults.
 
 See [`AGENTS.md`](../AGENTS.md) for the invariants that keep the event loop and
-thumbnail pipeline safe to change.
+thumbnail pipeline safe to change. Historical design notes live in
+[`docs/archive/`](archive/).
 
 ## Building
 
