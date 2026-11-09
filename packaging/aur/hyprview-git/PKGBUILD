@@ -45,6 +45,7 @@ package() {
     cd "$_pkgname"
     install -Dm755 target/release/hyprview "$pkgdir/usr/bin/hyprview"
     install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+    install -Dm644 docs/configuration.md "$pkgdir/usr/share/doc/$pkgname/docs/configuration.md"
     install -Dm644 config.example.toml "$pkgdir/usr/share/doc/$pkgname/config.example.toml"
     install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }
