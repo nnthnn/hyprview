@@ -1,0 +1,19 @@
+pkgbase = hyprview-git
+	pkgdesc = Lightweight workspace overview for Hyprland and Sway with live window thumbnails
+	pkgver = r0
+	pkgrel = 1
+	url = https://github.com/nnthnn/hyprview
+	arch = x86_64
+	license = MIT
+	makedepends = cargo
+	makedepends = git
+	depends = wayland
+	depends = cairo
+	depends = pango
+	optdepends = hyprland: live window thumbnails via toplevel-export
+	provides = hyprview
+	conflicts = hyprview
+	source = hyprview::git+https://github.com/nnthnn/hyprview.git
+	sha256sums = SKIP
+
+pkgname = hyprview-git

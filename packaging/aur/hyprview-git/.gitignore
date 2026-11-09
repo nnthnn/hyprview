@@ -1,0 +1,5 @@
+# makepkg artifacts
+hyprview/
+pkg/
+src/
+*.pkg.tar.*
