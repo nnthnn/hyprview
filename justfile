@@ -1,14 +1,19 @@
 # hyprview task runner — run `just` to list recipes.
 
-# Note: formatting is intentionally not part of `check`. The source uses manual
-# column alignment and `cargo fmt` would rewrite most of the tree.
-
 # Show available recipes.
 default:
 	@just --list
 
-# Pre-PR checklist: lint + test.
-check: clippy test
+# Pre-PR checklist: format, lint, test.
+check: fmt-check clippy test
+
+# Verify formatting without writing changes.
+fmt-check:
+	cargo fmt --all --check
+
+# Apply formatting.
+fmt:
+	cargo fmt --all
 
 # Lint all targets, treating warnings as errors.
 clippy:
@@ -25,6 +30,14 @@ build:
 # Install the release binary to ~/.cargo/bin.
 install:
 	cargo install --path . --locked --force
+
+# Audit dependencies for known security advisories (needs cargo-deny).
+audit:
+	cargo deny check advisories
+
+# One-time: point git at the tracked .githooks/ directory.
+install-hooks:
+	./install-hooks.sh
 
 # Build the tracked Arch package in packaging/aur/hyprview-git.
 package:

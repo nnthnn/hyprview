@@ -29,26 +29,33 @@ icons; `src/config.rs` owns TOML parsing and defaults.
 ```sh
 cargo build --release                              # binary at target/release/hyprview
 cargo test --locked                                # unit tests; no compositor needed
+cargo fmt --all --check                            # formatting; enforced by CI and hooks
 cargo clippy --all-targets --locked -- -D warnings # lint; keep this clean
 ```
 
-A [`justfile`](justfile) wraps these and the packaging tasks:
+A [`justfile`](justfile) wraps these, the hooks, and the packaging tasks:
 
 ```sh
-just check    # clippy + test
+just check    # fmt-check + clippy + test
+just fmt      # apply rustfmt
 just build    # release build
+just audit    # cargo-deny advisory check
 just install  # cargo install into ~/.cargo/bin
+just install-hooks # enable the tracked git hooks
 just package  # build the tracked Arch package
 just srcinfo  # regenerate the AUR .SRCINFO
 ```
 
 AUR packaging lives in `packaging/aur/hyprview-git/`. Regenerate `.SRCINFO` with
-`makepkg --printsrcinfo > .SRCINFO` after editing the `PKGBUILD`. There is no CI
-workflow in this repository, so run the checks locally before committing.
+`makepkg --printsrcinfo > .SRCINFO` after editing the `PKGBUILD`.
 
-The source is **not** rustfmt-formatted. `cargo fmt --all --check` reports a
-large pre-existing diff because the code uses manual column alignment. Do not
-run `cargo fmt` on the whole tree as part of an unrelated change.
+`.github/workflows/ci.yml` runs formatting, clippy, the release build, the test
+suite, and a `cargo-deny` advisory audit. Run `./install-hooks.sh` once per clone
+(or `just install-hooks`) to make `pre-commit` format staged Rust files and
+`pre-push` run the format check plus clippy.
+
+Formatting is enforced: keep `cargo fmt --all --check` clean and let rustfmt own
+alignment rather than hand-aligning columns.
 
 ## Testing
 

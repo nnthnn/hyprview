@@ -10,6 +10,7 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/nnthnn/hyprview/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/nnthnn/hyprview/actions/workflows/ci.yml/badge.svg"></a>
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
   <img alt="Hyprland 0.55+" src="https://img.shields.io/badge/Hyprland-0.55%2B-58d3f7">
   <img alt="Sway" src="https://img.shields.io/badge/Sway-supported-4cae4f">
@@ -284,6 +285,7 @@ parsing, key mapping, filtering, Tab-cycle candidates, icon lookup, and renderin
 metrics.
 
 ```
+cargo fmt --all --check
 cargo test --locked
 cargo clippy --all-targets --locked -- -D warnings
 cargo build --release
@@ -292,12 +294,26 @@ cargo build --release
 A [`justfile`](justfile) wraps the common tasks:
 
 ```
-just check      # lint + test
-just build      # release build
-just install    # cargo install into ~/.cargo/bin
-just package    # build the Arch package
-just srcinfo    # regenerate the AUR .SRCINFO
+just check         # format + lint + test
+just fmt           # apply rustfmt
+just build         # release build
+just audit         # cargo-deny advisory check
+just install       # cargo install into ~/.cargo/bin
+just install-hooks # enable the tracked git hooks
+just package       # build the Arch package
+just srcinfo       # regenerate the AUR .SRCINFO
 ```
+
+CI runs the same format, clippy, build, test, and advisory-audit checks. To have
+the fast checks run locally before code leaves your machine, enable the tracked
+hooks once per clone:
+
+```
+./install-hooks.sh
+```
+
+`pre-commit` formats staged Rust files; `pre-push` runs the format check and
+clippy.
 
 AUR packaging lives in [`packaging/aur/hyprview-git`](packaging/aur/hyprview-git).
 After editing the `PKGBUILD`, regenerate `.SRCINFO` with:

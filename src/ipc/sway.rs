@@ -118,7 +118,11 @@ fn collect_views(node: &SwayNode, workspace_id: i32, out: &mut Vec<ClientInfo>) 
             .app_id
             .clone()
             .filter(|s| !s.is_empty())
-            .or_else(|| node.window_properties.as_ref().and_then(|p| p.class.clone()))
+            .or_else(|| {
+                node.window_properties
+                    .as_ref()
+                    .and_then(|p| p.class.clone())
+            })
             .unwrap_or_default();
         out.push(ClientInfo {
             class_name,
@@ -214,10 +218,7 @@ fn find_focused_view(node: &SwayNode) -> Option<u64> {
 }
 
 pub fn get_active_window_address() -> u64 {
-    get_tree()
-        .as_ref()
-        .and_then(find_focused_view)
-        .unwrap_or(0)
+    get_tree().as_ref().and_then(find_focused_view).unwrap_or(0)
 }
 
 #[cfg(test)]

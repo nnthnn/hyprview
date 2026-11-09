@@ -1,0 +1,12 @@
+# cargo-deny configuration, used by the `audit` job in .github/workflows/ci.yml.
+# Run locally with `just audit` (or `cargo deny check advisories`).
+#
+# Only the advisory database is enforced here; license and ban policy are left
+# open, since hyprview has no dependency policy yet.
+
+[advisories]
+# Fail on yanked crates and unmaintained workspace dependencies; report
+# vulnerabilities from the RUSTSEC database.
+yanked = "deny"
+unmaintained = "workspace"
+ignore = []
