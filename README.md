@@ -215,5 +215,8 @@ test commands, packaging, and the release process.
 
 MIT — see [`LICENSE`](LICENSE).
 
-hyprview is a fork of [hyprexpose](https://github.com/ThiagoAVicente/hyprexpose)
-by ThiagoAVicente.
+hyprview began as a fork of
+[hyprexpose](https://github.com/ThiagoAVicente/hyprexpose) by ThiagoAVicente.
+It has since diverged into its own project, adding type-to-filter, Tab cycling,
+app icons and tooltips, window closing, config hot reload, packaged releases,
+and this documentation and site.
