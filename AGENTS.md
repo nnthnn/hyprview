@@ -3,7 +3,8 @@
 Guidance for coding agents working in the hyprview repository. User-facing
 documentation is in [`README.md`](README.md) and the static site in
 [`site/`](site/); the full configuration reference is
-[`docs/configuration.md`](docs/configuration.md), with
+[`docs/configuration.md`](docs/configuration.md), and build/architecture notes
+live in [`docs/development.md`](docs/development.md), with
 [`config.example.toml`](config.example.toml) as the annotated file.
 
 ## What this is
