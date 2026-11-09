@@ -304,6 +304,26 @@ fn tab_candidates(workspaces: &[WorkspaceInfo], filter: &str) -> Vec<u64> {
         .collect()
 }
 
+/// Address to highlight on the next Tab press.
+///
+/// `current` is the window the cycle is anchored to: the current Tab target,
+/// or (before the first Tab) the focused window, so cycling starts next to it
+/// rather than at the top of the grid. Falls back to the ends of the list when
+/// `current` is not among the candidates (e.g. it was filtered out).
+fn next_tab_target(candidates: &[u64], current: u64, reverse: bool) -> Option<u64> {
+    if candidates.is_empty() {
+        return None;
+    }
+    let cur = candidates.iter().position(|&a| a == current);
+    let next_index = match (cur, reverse) {
+        (Some(i), false) => (i + 1) % candidates.len(),
+        (Some(i), true)  => if i == 0 { candidates.len() - 1 } else { i - 1 },
+        (None, false)    => 0,
+        (None, true)     => candidates.len() - 1,
+    };
+    Some(candidates[next_index])
+}
+
 impl AppState {
     fn new(no_preview: bool, allow_mouse: bool, config: Config) -> Self {
         // CLI flags override config values (OR semantics: flag=true forces on)
@@ -458,19 +478,14 @@ impl AppState {
         }
 
         // Tab / Shift+Tab: cycle the highlighted window across all workspaces
-        // (or across filter-matching windows, if a filter is active)
+        // (or across filter-matching windows, if a filter is active). Before the
+        // first Tab, the cycle is anchored to the focused window rather than the
+        // top of the grid.
         if self.keys.tab.contains(&k) {
             let candidates = tab_candidates(&self.workspaces, &self.filter);
-            if !candidates.is_empty() {
-                let reverse = self.shift_held;
-                let cur = self.tab_target.and_then(|addr| candidates.iter().position(|&a| a == addr));
-                let next_index = match (cur, reverse) {
-                    (Some(i), false) => (i + 1) % candidates.len(),
-                    (Some(i), true)  => if i == 0 { candidates.len() - 1 } else { i - 1 },
-                    (None, false)    => 0,
-                    (None, true)     => candidates.len() - 1,
-                };
-                self.tab_target = Some(candidates[next_index]);
+            let current = self.tab_target.unwrap_or(self.active_window_address);
+            if let Some(next) = next_tab_target(&candidates, current, self.shift_held) {
+                self.tab_target = Some(next);
                 self.needs_redraw = true;
             }
             return false;
@@ -1606,6 +1621,44 @@ mod tests {
     fn tab_candidates_no_matches_returns_empty() {
         let workspaces = vec![workspace("1", vec![client(10, "foot", "term")])];
         assert_eq!(tab_candidates(&workspaces, "zed"), Vec::<u64>::new());
+    }
+
+    // ── next_tab_target ──────────────────────────────────────────────────────
+
+    #[test]
+    fn next_tab_target_starts_after_focused_window() {
+        // Focus is on the first window; the first Tab should move to the next
+        // one, not restart at the first window.
+        assert_eq!(next_tab_target(&[10, 11, 20], 11, false), Some(20));
+    }
+
+    #[test]
+    fn next_tab_target_wraps_forward_from_last() {
+        assert_eq!(next_tab_target(&[10, 11, 20], 20, false), Some(10));
+    }
+
+    #[test]
+    fn next_tab_target_reverse_starts_before_focused_window() {
+        assert_eq!(next_tab_target(&[10, 11, 20], 11, true), Some(10));
+    }
+
+    #[test]
+    fn next_tab_target_reverse_wraps_from_first() {
+        assert_eq!(next_tab_target(&[10, 11, 20], 10, true), Some(20));
+    }
+
+    #[test]
+    fn next_tab_target_falls_back_to_first_when_focus_not_candidate() {
+        // Focus outside the candidate set (e.g. filtered out): forward starts
+        // at the top, reverse at the bottom.
+        assert_eq!(next_tab_target(&[10, 11], 99, false), Some(10));
+        assert_eq!(next_tab_target(&[10, 11], 99, true), Some(11));
+    }
+
+    #[test]
+    fn next_tab_target_empty_candidates_returns_none() {
+        assert_eq!(next_tab_target(&[], 10, false), None);
+        assert_eq!(next_tab_target(&[], 10, true), None);
     }
 
     // ── key mapping functions ────────────────────────────────────────────────
