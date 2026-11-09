@@ -53,13 +53,33 @@ opt in, the mouse.
 
 ## Install
 
-The AUR package isn't published yet, so for now build from source. The tracked
-packaging source is in
-[`packaging/aur/hyprview-git`](packaging/aur/hyprview-git).
+Each [GitHub release](https://github.com/nnthnn/hyprview/releases) includes a
+prebuilt x86_64 binary and a stable source tarball. The binary is dynamically
+linked against Wayland, Cairo, and Pango, so those runtime libraries must be
+installed.
+
+### Prebuilt binary
+
+```
+curl -LO https://github.com/nnthnn/hyprview/releases/latest/download/hyprview-x86_64-unknown-linux-gnu.tar.gz
+curl -LO https://github.com/nnthnn/hyprview/releases/latest/download/hyprview-x86_64-unknown-linux-gnu.tar.gz.sha256
+sha256sum -c hyprview-x86_64-unknown-linux-gnu.tar.gz.sha256
+tar xzf hyprview-x86_64-unknown-linux-gnu.tar.gz
+sudo install -Dm755 hyprview/hyprview /usr/local/bin/hyprview
+```
+
+### Cargo
+
+With a Rust toolchain installed:
+
+```
+cargo install --git https://github.com/nnthnn/hyprview --locked
+```
 
 ### Arch Linux
 
-Using the tracked `hyprview-git` package:
+AUR publishing is paused while Arch restricts new accounts and package pushes,
+so build the tracked `hyprview-git` package locally:
 
 ```
 git clone https://github.com/nnthnn/hyprview.git

@@ -9,7 +9,8 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - `CONTRIBUTING.md` and this changelog.
-- Development docs are installed with the AUR package.
+- Prebuilt x86_64 binaries, checksums, and a source tarball on GitHub releases.
+- Project docs are installed with the AUR package.
 
 ### Changed
 
@@ -17,6 +18,8 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   [`docs/development.md`](docs/development.md).
 - Gave the crate a description, license, repository, homepage, and keywords.
 - Archived historical design notes under [`docs/archive/`](docs/archive/).
+- Install docs now lead with GitHub releases and Cargo; AUR publishing is paused
+  while Arch restricts new accounts and package pushes.
 
 ## [0.1.0] - 2026-11-09
 

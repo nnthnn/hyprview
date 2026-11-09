@@ -106,4 +106,6 @@ makepkg --printsrcinfo > .SRCINFO
 Releases are cut by pushing a `vX.Y.Z` tag that matches `Cargo.toml` (or by
 running `just release` from `main`).
 [`.github/workflows/release.yml`](../.github/workflows/release.yml) validates
-the tag and attaches a stable source tarball to the GitHub release.
+the tag, attaches a stable source tarball, and builds an x86_64 binary with a
+sha256 checksum. The release assets are the primary distribution path while
+Arch restricts new AUR accounts and package pushes.
