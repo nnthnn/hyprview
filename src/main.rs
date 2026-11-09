@@ -4,8 +4,8 @@ mod ipc;
 mod render;
 
 use config::Config;
-use render::Thumbnail;
 use ipc::WorkspaceInfo;
+use render::Thumbnail;
 
 use std::collections::VecDeque;
 use std::os::fd::{AsFd, AsRawFd, FromRawFd, OwnedFd};
@@ -22,9 +22,7 @@ use wayland_cursor::CursorTheme;
 
 const BTN_LEFT: u32 = 0x110;
 const BTN_RIGHT: u32 = 0x111;
-use wayland_protocols_wlr::layer_shell::v1::client::{
-    zwlr_layer_shell_v1, zwlr_layer_surface_v1,
-};
+use wayland_protocols_wlr::layer_shell::v1::client::{zwlr_layer_shell_v1, zwlr_layer_surface_v1};
 
 // Generated Hyprland protocol bindings
 #[allow(dead_code, non_camel_case_types, unused_unsafe, unused_variables)]
@@ -47,8 +45,8 @@ pub mod hyprland_toplevel_export {
 use hyprland_toplevel_export::{
     hyprland_toplevel_export_frame_v1, hyprland_toplevel_export_manager_v1,
 };
-use hyprland_toplevel_export_manager_v1::HyprlandToplevelExportManagerV1;
 use hyprland_toplevel_export_frame_v1::HyprlandToplevelExportFrameV1;
+use hyprland_toplevel_export_manager_v1::HyprlandToplevelExportManagerV1;
 
 // ── signal handling ─────────────────────────────────────────────────────────
 
@@ -68,35 +66,39 @@ unsafe extern "C" fn sig_handler(sig: libc::c_int) {
 
 // ── key mapping (evdev keycodes → XKB keysyms) ──────────────────────────────
 
-const XKB_KEY_ESCAPE:    u32 = 0xff1b;
-const XKB_KEY_RETURN:    u32 = 0xff0d;
+const XKB_KEY_ESCAPE: u32 = 0xff1b;
+const XKB_KEY_RETURN: u32 = 0xff0d;
 const XKB_KEY_BACKSPACE: u32 = 0xff08;
-const XKB_KEY_LEFT:      u32 = 0xff51;
-const XKB_KEY_UP:        u32 = 0xff52;
-const XKB_KEY_RIGHT:     u32 = 0xff53;
-const XKB_KEY_DOWN:      u32 = 0xff54;
-const XKB_KEY_DELETE:    u32 = 0xffff;
-const XKB_KEY_TAB:       u32 = 0xff09;
+const XKB_KEY_LEFT: u32 = 0xff51;
+const XKB_KEY_UP: u32 = 0xff52;
+const XKB_KEY_RIGHT: u32 = 0xff53;
+const XKB_KEY_DOWN: u32 = 0xff54;
+const XKB_KEY_DELETE: u32 = 0xffff;
+const XKB_KEY_TAB: u32 = 0xff09;
 const XKB_KEY_1: u32 = 0x0031;
 const XKB_KEY_9: u32 = 0x0039;
 
-const KEYCODE_LEFTSHIFT:  u32 = 42;
+const KEYCODE_LEFTSHIFT: u32 = 42;
 const KEYCODE_RIGHTSHIFT: u32 = 54;
 
 fn key_name_to_keysym(name: &str) -> Option<u32> {
     match name {
-        "Escape"         => Some(XKB_KEY_ESCAPE),
+        "Escape" => Some(XKB_KEY_ESCAPE),
         "Return" | "Enter" => Some(XKB_KEY_RETURN),
-        "Left"           => Some(XKB_KEY_LEFT),
-        "Up"             => Some(XKB_KEY_UP),
-        "Right"          => Some(XKB_KEY_RIGHT),
-        "Down"           => Some(XKB_KEY_DOWN),
-        "Tab"            => Some(XKB_KEY_TAB),
+        "Left" => Some(XKB_KEY_LEFT),
+        "Up" => Some(XKB_KEY_UP),
+        "Right" => Some(XKB_KEY_RIGHT),
+        "Down" => Some(XKB_KEY_DOWN),
+        "Tab" => Some(XKB_KEY_TAB),
         "space" | "Space" => Some(0x0020),
-        "Delete"          => Some(XKB_KEY_DELETE),
+        "Delete" => Some(XKB_KEY_DELETE),
         _ if name.len() == 1 => {
             let c = name.chars().next()?;
-            if c.is_ascii_graphic() { Some(c as u32) } else { None }
+            if c.is_ascii_graphic() {
+                Some(c as u32)
+            } else {
+                None
+            }
         }
         _ => None,
     }
@@ -107,29 +109,29 @@ fn resolve_keys(names: &[String]) -> Vec<u32> {
 }
 
 struct ResolvedKeys {
-    close:        Vec<u32>,
-    confirm:      Vec<u32>,
-    left:         Vec<u32>,
-    right:        Vec<u32>,
-    up:           Vec<u32>,
-    down:         Vec<u32>,
-    move_window:  Vec<u32>,
+    close: Vec<u32>,
+    confirm: Vec<u32>,
+    left: Vec<u32>,
+    right: Vec<u32>,
+    up: Vec<u32>,
+    down: Vec<u32>,
+    move_window: Vec<u32>,
     close_window: Vec<u32>,
-    tab:          Vec<u32>,
+    tab: Vec<u32>,
 }
 
 impl ResolvedKeys {
     fn from_config(kb: &config::KeybindingsConfig) -> Self {
         Self {
-            close:        resolve_keys(&kb.close),
-            confirm:      resolve_keys(&kb.confirm),
-            left:         resolve_keys(&kb.left),
-            right:        resolve_keys(&kb.right),
-            up:           resolve_keys(&kb.up),
-            down:         resolve_keys(&kb.down),
-            move_window:  resolve_keys(&kb.move_window),
+            close: resolve_keys(&kb.close),
+            confirm: resolve_keys(&kb.confirm),
+            left: resolve_keys(&kb.left),
+            right: resolve_keys(&kb.right),
+            up: resolve_keys(&kb.up),
+            down: resolve_keys(&kb.down),
+            move_window: resolve_keys(&kb.move_window),
             close_window: resolve_keys(&kb.close_window),
-            tab:          resolve_keys(&kb.tab),
+            tab: resolve_keys(&kb.tab),
         }
     }
 }
@@ -138,34 +140,68 @@ fn keycode_to_keysym(keycode: u32) -> u32 {
     // Compositors send raw evdev keycodes via wl_keyboard.
     // Letter keysyms equal their ASCII value.
     match keycode {
-        1   => XKB_KEY_ESCAPE,
-        14  => XKB_KEY_BACKSPACE,
-        15  => XKB_KEY_TAB,
-        28  => XKB_KEY_RETURN,
-        57  => 0x0020, // space
+        1 => XKB_KEY_ESCAPE,
+        14 => XKB_KEY_BACKSPACE,
+        15 => XKB_KEY_TAB,
+        28 => XKB_KEY_RETURN,
+        57 => 0x0020, // space
         103 => XKB_KEY_UP,
         105 => XKB_KEY_LEFT,
         106 => XKB_KEY_RIGHT,
         108 => XKB_KEY_DOWN,
         // digits 1-9 (evdev 2-10) and 0 (11); - = (12-13)
-        2  => 0x31, 3  => 0x32, 4  => 0x33, 5  => 0x34, 6  => 0x35,
-        7  => 0x36, 8  => 0x37, 9  => 0x38, 10 => 0x39, 11 => 0x30,
-        12 => 0x2d, 13 => 0x3d,
+        2 => 0x31,
+        3 => 0x32,
+        4 => 0x33,
+        5 => 0x34,
+        6 => 0x35,
+        7 => 0x36,
+        8 => 0x37,
+        9 => 0x38,
+        10 => 0x39,
+        11 => 0x30,
+        12 => 0x2d,
+        13 => 0x3d,
         // top row: q w e r t y u i o p [ ]
-        16 => 0x71, 17 => 0x77, 18 => 0x65, 19 => 0x72, 20 => 0x74,
-        21 => 0x79, 22 => 0x75, 23 => 0x69, 24 => 0x6f, 25 => 0x70,
-        26 => 0x5b, 27 => 0x5d,
+        16 => 0x71,
+        17 => 0x77,
+        18 => 0x65,
+        19 => 0x72,
+        20 => 0x74,
+        21 => 0x79,
+        22 => 0x75,
+        23 => 0x69,
+        24 => 0x6f,
+        25 => 0x70,
+        26 => 0x5b,
+        27 => 0x5d,
         // home row: a s d f g h j k l ; ' `
-        30 => 0x61, 31 => 0x73, 32 => 0x64, 33 => 0x66, 34 => 0x67,
-        35 => 0x68, 36 => 0x6a, 37 => 0x6b, 38 => 0x6c,
-        39 => 0x3b, 40 => 0x27, 41 => 0x60,
+        30 => 0x61,
+        31 => 0x73,
+        32 => 0x64,
+        33 => 0x66,
+        34 => 0x67,
+        35 => 0x68,
+        36 => 0x6a,
+        37 => 0x6b,
+        38 => 0x6c,
+        39 => 0x3b,
+        40 => 0x27,
+        41 => 0x60,
         // bottom row: \ z x c v b n m , . /
         43 => 0x5c,
-        44 => 0x7a, 45 => 0x78, 46 => 0x63, 47 => 0x76, 48 => 0x62,
-        49 => 0x6e, 50 => 0x6d,
-        51 => 0x2c, 52 => 0x2e, 53 => 0x2f,
+        44 => 0x7a,
+        45 => 0x78,
+        46 => 0x63,
+        47 => 0x76,
+        48 => 0x62,
+        49 => 0x6e,
+        50 => 0x6d,
+        51 => 0x2c,
+        52 => 0x2e,
+        53 => 0x2f,
         111 => XKB_KEY_DELETE,
-        _  => 0,
+        _ => 0,
     }
 }
 
@@ -267,7 +303,9 @@ fn find_single_window_match(workspaces: &[WorkspaceInfo], filter: &str) -> Optio
     for ws in workspaces {
         for c in &ws.clients {
             if c.class_name.to_lowercase().contains(&f) || c.title.to_lowercase().contains(&f) {
-                if found.is_some() { return None; } // more than one
+                if found.is_some() {
+                    return None;
+                } // more than one
                 found = Some(c.address);
             }
         }
@@ -278,8 +316,7 @@ fn find_single_window_match(workspaces: &[WorkspaceInfo], filter: &str) -> Optio
 fn workspace_matches(ws: &WorkspaceInfo, filter: &str) -> bool {
     ws.name.to_lowercase().contains(filter)
         || ws.clients.iter().any(|c| {
-            c.class_name.to_lowercase().contains(filter)
-                || c.title.to_lowercase().contains(filter)
+            c.class_name.to_lowercase().contains(filter) || c.title.to_lowercase().contains(filter)
         })
 }
 
@@ -317,9 +354,15 @@ fn next_tab_target(candidates: &[u64], current: u64, reverse: bool) -> Option<u6
     let cur = candidates.iter().position(|&a| a == current);
     let next_index = match (cur, reverse) {
         (Some(i), false) => (i + 1) % candidates.len(),
-        (Some(i), true)  => if i == 0 { candidates.len() - 1 } else { i - 1 },
-        (None, false)    => 0,
-        (None, true)     => candidates.len() - 1,
+        (Some(i), true) => {
+            if i == 0 {
+                candidates.len() - 1
+            } else {
+                i - 1
+            }
+        }
+        (None, false) => 0,
+        (None, true) => candidates.len() - 1,
     };
     Some(candidates[next_index])
 }
@@ -419,8 +462,14 @@ impl AppState {
     /// Returns true if the overlay should be closed.
     fn handle_key(&mut self, keysym: u32) -> bool {
         let n = self.workspaces.len();
-        if n == 0 { return true; }
-        let cols = if self.config.appearance.columns > 0 { self.config.appearance.columns.min(n) } else { ((n as f64).sqrt().ceil() as usize).max(1) };
+        if n == 0 {
+            return true;
+        }
+        let cols = if self.config.appearance.columns > 0 {
+            self.config.appearance.columns.min(n)
+        } else {
+            ((n as f64).sqrt().ceil() as usize).max(1)
+        };
         let k = keysym;
 
         // Backspace: pop filter char
@@ -452,7 +501,9 @@ impl AppState {
         if self.keys.confirm.contains(&k) {
             let target_addr = self.tab_target.or(self.filter_match);
             if let Some(addr) = target_addr {
-                let client = self.workspaces.iter()
+                let client = self
+                    .workspaces
+                    .iter()
                     .flat_map(|ws| ws.clients.iter())
                     .find(|c| c.address == addr);
                 if let Some(c) = client {
@@ -462,7 +513,11 @@ impl AppState {
             }
             if !self.filter.is_empty() {
                 let f = self.filter.to_lowercase();
-                if let Some(i) = self.workspaces.iter().position(|ws| workspace_matches(ws, &f)) {
+                if let Some(i) = self
+                    .workspaces
+                    .iter()
+                    .position(|ws| workspace_matches(ws, &f))
+                {
                     self.selected = i;
                 }
             }
@@ -473,7 +528,9 @@ impl AppState {
         // Number keys: direct jump (only without filter)
         if self.filter.is_empty() && (XKB_KEY_1..=XKB_KEY_9).contains(&k) {
             let idx = (k - XKB_KEY_1) as usize;
-            if idx < n { ipc::switch_workspace(&self.workspaces[idx]); }
+            if idx < n {
+                ipc::switch_workspace(&self.workspaces[idx]);
+            }
             return true;
         }
 
@@ -496,24 +553,35 @@ impl AppState {
         if is_arrow || self.filter.is_empty() {
             if self.keys.right.contains(&k) && self.selected + 1 < n {
                 self.tab_target = None;
-                self.selected += 1; self.needs_redraw = true; return false;
+                self.selected += 1;
+                self.needs_redraw = true;
+                return false;
             }
             if self.keys.left.contains(&k) && self.selected > 0 {
                 self.tab_target = None;
-                self.selected -= 1; self.needs_redraw = true; return false;
+                self.selected -= 1;
+                self.needs_redraw = true;
+                return false;
             }
             if self.keys.down.contains(&k) && self.selected + cols < n {
                 self.tab_target = None;
-                self.selected += cols; self.needs_redraw = true; return false;
+                self.selected += cols;
+                self.needs_redraw = true;
+                return false;
             }
             if self.keys.up.contains(&k) && self.selected >= cols {
                 self.tab_target = None;
-                self.selected -= cols; self.needs_redraw = true; return false;
+                self.selected -= cols;
+                self.needs_redraw = true;
+                return false;
             }
         }
 
         // Move window (only without filter)
-        if self.filter.is_empty() && self.keys.move_window.contains(&k) && self.move_active_window_to_selected() {
+        if self.filter.is_empty()
+            && self.keys.move_window.contains(&k)
+            && self.move_active_window_to_selected()
+        {
             return true;
         }
 
@@ -525,8 +593,12 @@ impl AppState {
                 for ws in &mut self.workspaces {
                     ws.clients.retain(|c| c.address != addr);
                 }
-                if self.hovered_window == Some(addr) { self.hovered_window = None; }
-                if self.tab_target == Some(addr) { self.tab_target = None; }
+                if self.hovered_window == Some(addr) {
+                    self.hovered_window = None;
+                }
+                if self.tab_target == Some(addr) {
+                    self.tab_target = None;
+                }
                 self.update_filter_state();
                 self.needs_redraw = true;
             }
@@ -550,7 +622,11 @@ impl AppState {
         } else {
             find_single_window_match(&self.workspaces, &f)
         };
-        if let Some(i) = self.workspaces.iter().position(|ws| workspace_matches(ws, &f)) {
+        if let Some(i) = self
+            .workspaces
+            .iter()
+            .position(|ws| workspace_matches(ws, &f))
+        {
             self.selected = i;
         }
     }
@@ -581,7 +657,11 @@ impl AppState {
             return None;
         }
 
-        let cols = if self.config.appearance.columns > 0 { self.config.appearance.columns.min(n) } else { ((n as f64).sqrt().ceil() as usize).max(1) };
+        let cols = if self.config.appearance.columns > 0 {
+            self.config.appearance.columns.min(n)
+        } else {
+            ((n as f64).sqrt().ceil() as usize).max(1)
+        };
         let rows = n.div_ceil(cols);
         let pad = self.config.appearance.card_padding;
 
@@ -623,7 +703,11 @@ impl AppState {
         if n == 0 || self.width == 0 || self.height == 0 {
             return None;
         }
-        let cols = if self.config.appearance.columns > 0 { self.config.appearance.columns.min(n) } else { ((n as f64).sqrt().ceil() as usize).max(1) };
+        let cols = if self.config.appearance.columns > 0 {
+            self.config.appearance.columns.min(n)
+        } else {
+            ((n as f64).sqrt().ceil() as usize).max(1)
+        };
         let rows = n.div_ceil(cols);
         let pad = self.config.appearance.card_padding;
         let card_w = ((self.width as f64 - pad * (cols + 1) as f64) / cols as f64)
@@ -653,7 +737,12 @@ impl AppState {
             let (min_x, min_y, max_x, max_y) = ws.clients.iter().fold(
                 (i32::MAX, i32::MAX, i32::MIN, i32::MIN),
                 |(mix, miy, mxx, mxy), c| {
-                    (mix.min(c.x), miy.min(c.y), mxx.max(c.x + c.w), mxy.max(c.y + c.h))
+                    (
+                        mix.min(c.x),
+                        miy.min(c.y),
+                        mxx.max(c.x + c.w),
+                        mxy.max(c.y + c.h),
+                    )
                 },
             );
             let ws_w = (max_x - min_x).max(1) as f64;
@@ -687,7 +776,14 @@ impl Dispatch<wl_registry::WlRegistry, ()> for AppState {
         _: &Connection,
         qh: &QueueHandle<Self>,
     ) {
-        let wl_registry::Event::Global { name, interface, version } = event else { return };
+        let wl_registry::Event::Global {
+            name,
+            interface,
+            version,
+        } = event
+        else {
+            return;
+        };
         match interface.as_str() {
             "wl_compositor" => {
                 state.compositor = Some(registry.bind(name, version.min(4), qh, ()));
@@ -715,15 +811,39 @@ wayland_client::delegate_noop!(AppState: ignore zwlr_layer_shell_v1::ZwlrLayerSh
 wayland_client::delegate_noop!(AppState: ignore HyprlandToplevelExportManagerV1);
 
 impl Dispatch<wl_shm::WlShm, ()> for AppState {
-    fn event(_: &mut Self, _: &wl_shm::WlShm, _: wl_shm::Event, _: &(), _: &Connection, _: &QueueHandle<Self>) {}
+    fn event(
+        _: &mut Self,
+        _: &wl_shm::WlShm,
+        _: wl_shm::Event,
+        _: &(),
+        _: &Connection,
+        _: &QueueHandle<Self>,
+    ) {
+    }
 }
 
 impl Dispatch<wl_buffer::WlBuffer, ()> for AppState {
-    fn event(_: &mut Self, _: &wl_buffer::WlBuffer, _: wl_buffer::Event, _: &(), _: &Connection, _: &QueueHandle<Self>) {}
+    fn event(
+        _: &mut Self,
+        _: &wl_buffer::WlBuffer,
+        _: wl_buffer::Event,
+        _: &(),
+        _: &Connection,
+        _: &QueueHandle<Self>,
+    ) {
+    }
 }
 
 impl Dispatch<wl_surface::WlSurface, ()> for AppState {
-    fn event(_: &mut Self, _: &wl_surface::WlSurface, _: wl_surface::Event, _: &(), _: &Connection, _: &QueueHandle<Self>) {}
+    fn event(
+        _: &mut Self,
+        _: &wl_surface::WlSurface,
+        _: wl_surface::Event,
+        _: &(),
+        _: &Connection,
+        _: &QueueHandle<Self>,
+    ) {
+    }
 }
 
 impl Dispatch<wl_seat::WlSeat, ()> for AppState {
@@ -735,7 +855,10 @@ impl Dispatch<wl_seat::WlSeat, ()> for AppState {
         _: &Connection,
         qh: &QueueHandle<Self>,
     ) {
-        if let wl_seat::Event::Capabilities { capabilities: WEnum::Value(caps) } = event {
+        if let wl_seat::Event::Capabilities {
+            capabilities: WEnum::Value(caps),
+        } = event
+        {
             if caps.contains(wl_seat::Capability::Keyboard) {
                 seat.get_keyboard(qh, ());
             }
@@ -755,7 +878,12 @@ impl Dispatch<wl_keyboard::WlKeyboard, ()> for AppState {
         _: &Connection,
         _: &QueueHandle<Self>,
     ) {
-        if let wl_keyboard::Event::Key { key, state: WEnum::Value(key_state), .. } = event {
+        if let wl_keyboard::Event::Key {
+            key,
+            state: WEnum::Value(key_state),
+            ..
+        } = event
+        {
             if key == KEYCODE_LEFTSHIFT || key == KEYCODE_RIGHTSHIFT {
                 state.shift_held = key_state == wl_keyboard::KeyState::Pressed;
                 return;
@@ -783,12 +911,20 @@ impl Dispatch<wl_pointer::WlPointer, ()> for AppState {
             return;
         }
         match event {
-            wl_pointer::Event::Enter { serial, surface_x, surface_y, .. } => {
+            wl_pointer::Event::Enter {
+                serial,
+                surface_x,
+                surface_y,
+                ..
+            } => {
                 state.pointer_x = surface_x;
                 state.pointer_y = surface_y;
                 state.cursor_enter_serial = serial;
                 state.cursor_is_pointer = false;
-                if state.tab_target.is_some() { state.tab_target = None; state.needs_redraw = true; }
+                if state.tab_target.is_some() {
+                    state.tab_target = None;
+                    state.needs_redraw = true;
+                }
                 state.select_workspace_at(surface_x, surface_y);
                 state.init_cursor(conn, qh);
                 let win = state.window_at(surface_x, surface_y);
@@ -799,10 +935,17 @@ impl Dispatch<wl_pointer::WlPointer, ()> for AppState {
                     state.needs_redraw = true;
                 }
             }
-            wl_pointer::Event::Motion { surface_x, surface_y, .. } => {
+            wl_pointer::Event::Motion {
+                surface_x,
+                surface_y,
+                ..
+            } => {
                 state.pointer_x = surface_x;
                 state.pointer_y = surface_y;
-                if state.tab_target.is_some() { state.tab_target = None; state.needs_redraw = true; }
+                if state.tab_target.is_some() {
+                    state.tab_target = None;
+                    state.needs_redraw = true;
+                }
                 state.select_workspace_at(surface_x, surface_y);
                 let win = state.window_at(surface_x, surface_y);
                 if win.is_some() != state.cursor_is_pointer {
@@ -819,7 +962,10 @@ impl Dispatch<wl_pointer::WlPointer, ()> for AppState {
                 state: WEnum::Value(wl_pointer::ButtonState::Pressed),
                 ..
             } => {
-                if state.workspace_at(state.pointer_x, state.pointer_y).is_none() {
+                if state
+                    .workspace_at(state.pointer_x, state.pointer_y)
+                    .is_none()
+                {
                     state.should_close = true;
                     return;
                 }
@@ -827,11 +973,14 @@ impl Dispatch<wl_pointer::WlPointer, ()> for AppState {
                     BTN_LEFT => {
                         let win = state.window_at(state.pointer_x, state.pointer_y);
                         if let Some(addr) = win {
-                            let client = state.workspaces.iter()
+                            let client = state
+                                .workspaces
+                                .iter()
                                 .flat_map(|ws| ws.clients.iter())
                                 .find(|c| c.address == addr);
                             if let Some(c) = client {
-                                state.pending_focus = Some((c.workspace_id, addr, c.x + c.w / 2, c.y + c.h / 2));
+                                state.pending_focus =
+                                    Some((c.workspace_id, addr, c.x + c.w / 2, c.y + c.h / 2));
                             }
                         } else {
                             state.activate_selected_workspace();
@@ -867,7 +1016,11 @@ impl Dispatch<zwlr_layer_surface_v1::ZwlrLayerSurfaceV1, ()> for AppState {
         _: &QueueHandle<Self>,
     ) {
         match event {
-            zwlr_layer_surface_v1::Event::Configure { serial, width, height } => {
+            zwlr_layer_surface_v1::Event::Configure {
+                serial,
+                width,
+                height,
+            } => {
                 layer_surface.ack_configure(serial);
                 state.width = width;
                 state.height = height;
@@ -891,9 +1044,16 @@ impl Dispatch<HyprlandToplevelExportFrameV1, ()> for AppState {
         _: &QueueHandle<Self>,
     ) {
         use hyprland_toplevel_export_frame_v1::Event;
-        let Some(cap) = state.pending_capture.as_mut() else { return };
+        let Some(cap) = state.pending_capture.as_mut() else {
+            return;
+        };
         match event {
-            Event::Buffer { format, width, height, stride } => {
+            Event::Buffer {
+                format,
+                width,
+                height,
+                stride,
+            } => {
                 // Convert WEnum<wl_shm::Format> to u32
                 cap.format = format.into();
                 cap.width = width;
@@ -945,9 +1105,8 @@ fn show(state: &mut AppState, qh: &QueueHandle<AppState>) -> bool {
     use zwlr_layer_surface_v1::Anchor;
     layer_surface.set_anchor(Anchor::Top | Anchor::Bottom | Anchor::Left | Anchor::Right);
     layer_surface.set_exclusive_zone(-1);
-    layer_surface.set_keyboard_interactivity(
-        zwlr_layer_surface_v1::KeyboardInteractivity::Exclusive,
-    );
+    layer_surface
+        .set_keyboard_interactivity(zwlr_layer_surface_v1::KeyboardInteractivity::Exclusive);
 
     wl_surf.commit();
 
@@ -961,7 +1120,13 @@ fn hide(state: &mut AppState) {
     state.capture_queue.clear();
     state.pending_capture = None;
     if let Some(cap) = state.active_capture.take() {
-        if let CapturePhase::Phase2 { wl_buf, mmap_ptr, size, .. } = cap.phase {
+        if let CapturePhase::Phase2 {
+            wl_buf,
+            mmap_ptr,
+            size,
+            ..
+        } = cap.phase
+        {
             unsafe { libc::munmap(mmap_ptr, size) };
             wl_buf.destroy();
         }
@@ -994,7 +1159,9 @@ fn redraw(state: &mut AppState, qh: &QueueHandle<AppState>) {
     let workspaces_to_draw: &[_] = if state.config.behavior.show_empty_workspaces {
         &state.workspaces
     } else {
-        visible_workspaces = state.workspaces.iter()
+        visible_workspaces = state
+            .workspaces
+            .iter()
             .filter(|ws| !ws.clients.is_empty())
             .cloned()
             .collect();
@@ -1021,7 +1188,9 @@ fn redraw(state: &mut AppState, qh: &QueueHandle<AppState>) {
     let stride = state.width * 4;
     let size = (stride * state.height) as usize;
 
-    let Some(fd) = create_shm_fd(size) else { return };
+    let Some(fd) = create_shm_fd(size) else {
+        return;
+    };
     let raw_fd = fd.as_fd().as_raw_fd();
 
     let written = unsafe { libc::write(raw_fd, pixels.as_ptr() as *const libc::c_void, size) };
@@ -1073,8 +1242,12 @@ fn advance_capture(conn: &Connection, state: &mut AppState, qh: &QueueHandle<App
                 Some(a) => a,
                 None => return,
             };
-            let frame = state.toplevel_export.as_ref().unwrap()
-                .capture_toplevel(0, address as u32, qh, ());
+            let frame =
+                state
+                    .toplevel_export
+                    .as_ref()
+                    .unwrap()
+                    .capture_toplevel(0, address as u32, qh, ());
             state.pending_capture = Some(CaptureFrameData::default());
             conn.flush().ok();
             state.active_capture = Some(ActiveCapture {
@@ -1093,7 +1266,10 @@ fn advance_capture(conn: &Connection, state: &mut AppState, qh: &QueueHandle<App
         CapturePhase::Phase1 => {
             let cap = match state.pending_capture.as_ref() {
                 Some(c) => c,
-                None => { active.frame.destroy(); return; }
+                None => {
+                    active.frame.destroy();
+                    return;
+                }
             };
 
             if timed_out || cap.frame_failed {
@@ -1115,16 +1291,22 @@ fn advance_capture(conn: &Connection, state: &mut AppState, qh: &QueueHandle<App
             }
 
             let size = (cap.stride * cap.height) as usize;
-            let raw_fd = unsafe {
-                libc::memfd_create(c"hyprview-cap".as_ptr(), libc::MFD_CLOEXEC)
-            };
-            if raw_fd < 0 { active.frame.destroy(); return; }
+            let raw_fd = unsafe { libc::memfd_create(c"hyprview-cap".as_ptr(), libc::MFD_CLOEXEC) };
+            if raw_fd < 0 {
+                active.frame.destroy();
+                return;
+            }
             unsafe { libc::ftruncate(raw_fd, size as libc::off_t) };
 
             let mmap_ptr = unsafe {
-                libc::mmap(std::ptr::null_mut(), size,
+                libc::mmap(
+                    std::ptr::null_mut(),
+                    size,
                     libc::PROT_READ | libc::PROT_WRITE,
-                    libc::MAP_SHARED, raw_fd, 0)
+                    libc::MAP_SHARED,
+                    raw_fd,
+                    0,
+                )
             };
             if mmap_ptr == libc::MAP_FAILED {
                 unsafe { libc::close(raw_fd) };
@@ -1139,17 +1321,25 @@ fn advance_capture(conn: &Connection, state: &mut AppState, qh: &QueueHandle<App
                 return;
             };
 
-            let wl_fmt = wl_shm::Format::try_from(cap.format)
-                .unwrap_or(wl_shm::Format::Argb8888);
+            let wl_fmt = wl_shm::Format::try_from(cap.format).unwrap_or(wl_shm::Format::Argb8888);
             let pool = shm.create_pool(owned_fd.as_fd(), size as i32, qh, ());
             let wl_buf = pool.create_buffer(
-                0, cap.width as i32, cap.height as i32, cap.stride as i32, wl_fmt, qh, ());
+                0,
+                cap.width as i32,
+                cap.height as i32,
+                cap.stride as i32,
+                wl_fmt,
+                qh,
+                (),
+            );
             pool.destroy();
             drop(owned_fd);
 
             state.pending_capture = Some(CaptureFrameData {
-                width: cap.width, height: cap.height,
-                stride: cap.stride, format: cap.format,
+                width: cap.width,
+                height: cap.height,
+                stride: cap.stride,
+                format: cap.format,
                 ..Default::default()
             });
             active.frame.copy(&wl_buf, 1);
@@ -1159,14 +1349,25 @@ fn advance_capture(conn: &Connection, state: &mut AppState, qh: &QueueHandle<App
                 frame: active.frame,
                 address: active.address,
                 phase: CapturePhase::Phase2 {
-                    wl_buf, mmap_ptr, size,
-                    width: cap.width, height: cap.height, stride: cap.stride,
+                    wl_buf,
+                    mmap_ptr,
+                    size,
+                    width: cap.width,
+                    height: cap.height,
+                    stride: cap.stride,
                 },
                 started: active.started,
             });
         }
 
-        CapturePhase::Phase2 { wl_buf, mmap_ptr, size, width, height, stride } => {
+        CapturePhase::Phase2 {
+            wl_buf,
+            mmap_ptr,
+            size,
+            width,
+            height,
+            stride,
+        } => {
             let cap = state.pending_capture.as_ref();
             let ready = cap.is_some_and(|c| c.frame_ready);
             let failed = timed_out || cap.is_none_or(|c| c.frame_failed);
@@ -1175,7 +1376,14 @@ fn advance_capture(conn: &Connection, state: &mut AppState, qh: &QueueHandle<App
                 state.active_capture = Some(ActiveCapture {
                     frame: active.frame,
                     address: active.address,
-                    phase: CapturePhase::Phase2 { wl_buf, mmap_ptr, size, width, height, stride },
+                    phase: CapturePhase::Phase2 {
+                        wl_buf,
+                        mmap_ptr,
+                        size,
+                        width,
+                        height,
+                        stride,
+                    },
                     started: active.started,
                 });
                 return;
@@ -1184,13 +1392,14 @@ fn advance_capture(conn: &Connection, state: &mut AppState, qh: &QueueHandle<App
             state.pending_capture = None;
 
             if ready {
-                let pixels = unsafe {
-                    std::slice::from_raw_parts(mmap_ptr as *const u8, size).to_vec()
-                };
+                let pixels =
+                    unsafe { std::slice::from_raw_parts(mmap_ptr as *const u8, size).to_vec() };
                 state.thumbnails.push(Thumbnail {
                     address: active.address,
                     data: pixels,
-                    width, height, stride,
+                    width,
+                    height,
+                    stride,
                 });
                 state.needs_redraw = true;
             }
@@ -1211,18 +1420,35 @@ fn lock_file_path() -> String {
 
 fn try_lock_instance() -> Option<std::fs::File> {
     use std::io::Write;
-    let file = std::fs::OpenOptions::new().create(true).write(true).truncate(false).open(lock_file_path()).ok()?;
+    let file = std::fs::OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(false)
+        .open(lock_file_path())
+        .ok()?;
     let ret = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) };
-    if ret != 0 { return None; }
+    if ret != 0 {
+        return None;
+    }
     // Now that we hold the lock, replace any stale PID with ours so --toggle can find us.
     file.set_len(0).ok();
-    (&file).write_all(std::process::id().to_string().as_bytes()).ok();
+    (&file)
+        .write_all(std::process::id().to_string().as_bytes())
+        .ok();
     Some(file)
 }
 
 fn send_toggle() {
     let path = lock_file_path();
-    let Ok(file) = std::fs::OpenOptions::new().write(true).read(true).create(true).truncate(false).open(&path) else { return };
+    let Ok(file) = std::fs::OpenOptions::new()
+        .write(true)
+        .read(true)
+        .create(true)
+        .truncate(false)
+        .open(&path)
+    else {
+        return;
+    };
     let ret = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) };
     if ret == 0 {
         // Got the lock — no daemon running, release and exit
@@ -1242,7 +1468,10 @@ fn main() {
     let mut allow_mouse = false;
     for arg in std::env::args().skip(1) {
         match arg.as_str() {
-            "--toggle"     => { send_toggle(); std::process::exit(0); }
+            "--toggle" => {
+                send_toggle();
+                std::process::exit(0);
+            }
             "--no-preview" => no_preview = true,
             "--allow-mouse" => allow_mouse = true,
             _ => {
@@ -1264,8 +1493,8 @@ fn main() {
         sa.sa_sigaction = sig_handler as *const () as libc::sighandler_t;
         libc::sigemptyset(&mut sa.sa_mask);
         libc::sigaction(libc::SIGUSR1, &sa, std::ptr::null_mut());
-        libc::sigaction(libc::SIGHUP,  &sa, std::ptr::null_mut());
-        libc::sigaction(libc::SIGINT,  &sa, std::ptr::null_mut());
+        libc::sigaction(libc::SIGHUP, &sa, std::ptr::null_mut());
+        libc::sigaction(libc::SIGINT, &sa, std::ptr::null_mut());
         libc::sigaction(libc::SIGTERM, &sa, std::ptr::null_mut());
 
         // Block these signals normally; ppoll atomically unblocks them during
@@ -1348,7 +1577,9 @@ fn main() {
             let new_config = Config::load();
             state.keys = ResolvedKeys::from_config(&new_config.keybindings);
             state.config = new_config;
-            if state.visible { state.needs_redraw = true; }
+            if state.visible {
+                state.needs_redraw = true;
+            }
             eprintln!("hyprview: config reloaded");
         }
 
@@ -1365,15 +1596,20 @@ fn main() {
                     state.workspaces = ipc::get_workspaces();
                     state.thumbnails.clear();
                     let active = ipc::get_active_workspace_name();
-                    state.selected = state.workspaces.iter()
-                        .position(|ws| ws.name == active).unwrap_or(0);
+                    state.selected = state
+                        .workspaces
+                        .iter()
+                        .position(|ws| ws.name == active)
+                        .unwrap_or(0);
                     state.visible = true;
 
                     // Enqueue thumbnail captures; overlay draws immediately
                     // with colored rectangles and redraws as thumbnails arrive.
                     state.capture_queue.extend(
-                        state.workspaces.iter()
-                            .flat_map(|ws| ws.clients.iter().map(|c| c.address))
+                        state
+                            .workspaces
+                            .iter()
+                            .flat_map(|ws| ws.clients.iter().map(|c| c.address)),
                     );
 
                     redraw(&mut state, &qh);
@@ -1426,14 +1662,25 @@ fn main() {
         };
 
         let poll_timeout = if capturing {
-            &libc::timespec { tv_sec: 0, tv_nsec: 50_000_000 } as *const libc::timespec
+            &libc::timespec {
+                tv_sec: 0,
+                tv_nsec: 50_000_000,
+            } as *const libc::timespec
         } else {
             std::ptr::null()
         };
 
         let mut pollfds = [
-            libc::pollfd { fd: display_fd,  events: libc::POLLIN, revents: 0 },
-            libc::pollfd { fd: inotify_fd,  events: libc::POLLIN, revents: 0 },
+            libc::pollfd {
+                fd: display_fd,
+                events: libc::POLLIN,
+                revents: 0,
+            },
+            libc::pollfd {
+                fd: inotify_fd,
+                events: libc::POLLIN,
+                revents: 0,
+            },
         ];
         let nfds = if inotify_fd >= 0 { 2u64 } else { 1u64 };
 
@@ -1453,9 +1700,8 @@ fn main() {
         // Check inotify before Wayland so a config change doesn't race a redraw
         if inotify_fd >= 0 && pollfds[1].revents & libc::POLLIN != 0 {
             let mut buf = [0u8; 4096];
-            let n = unsafe {
-                libc::read(inotify_fd, buf.as_mut_ptr() as *mut libc::c_void, buf.len())
-            };
+            let n =
+                unsafe { libc::read(inotify_fd, buf.as_mut_ptr() as *mut libc::c_void, buf.len()) };
             if n > 0 {
                 let ev_size = std::mem::size_of::<libc::inotify_event>();
                 let mut offset = 0usize;
@@ -1505,12 +1751,20 @@ mod tests {
             title: title.into(),
             initial_title: String::new(),
             workspace_id: 1,
-            x: 0, y: 0, w: 100, h: 100,
+            x: 0,
+            y: 0,
+            w: 100,
+            h: 100,
         }
     }
 
     fn workspace(name: &str, clients: Vec<ClientInfo>) -> WorkspaceInfo {
-        WorkspaceInfo { id: 1, name: name.into(), monitor_id: 0, clients }
+        WorkspaceInfo {
+            id: 1,
+            name: name.into(),
+            monitor_id: 0,
+            clients,
+        }
     }
 
     // ── workspace_matches ────────────────────────────────────────────────────
@@ -1547,19 +1801,22 @@ mod tests {
 
     #[test]
     fn single_match_returns_address() {
-        let workspaces = vec![workspace("1", vec![
-            client(10, "firefox", "GitHub"),
-            client(20, "foot", "nvim"),
-        ])];
+        let workspaces = vec![workspace(
+            "1",
+            vec![client(10, "firefox", "GitHub"), client(20, "foot", "nvim")],
+        )];
         assert_eq!(find_single_window_match(&workspaces, "fire"), Some(10));
     }
 
     #[test]
     fn multiple_matches_returns_none() {
-        let workspaces = vec![workspace("1", vec![
-            client(10, "firefox", "GitHub"),
-            client(20, "foot", "Firefox bookmarks"),
-        ])];
+        let workspaces = vec![workspace(
+            "1",
+            vec![
+                client(10, "firefox", "GitHub"),
+                client(20, "foot", "Firefox bookmarks"),
+            ],
+        )];
         assert_eq!(find_single_window_match(&workspaces, "firefox"), None);
     }
 
@@ -1589,7 +1846,10 @@ mod tests {
     #[test]
     fn tab_candidates_empty_filter_returns_all_in_grid_order() {
         let workspaces = vec![
-            workspace("1", vec![client(10, "foot", "term"), client(11, "firefox", "web")]),
+            workspace(
+                "1",
+                vec![client(10, "foot", "term"), client(11, "firefox", "web")],
+            ),
             workspace("2", vec![client(20, "zed", "editor")]),
         ];
         assert_eq!(tab_candidates(&workspaces, ""), vec![10, 11, 20]);
@@ -1611,7 +1871,10 @@ mod tests {
     #[test]
     fn tab_candidates_filter_narrows_to_matches() {
         let workspaces = vec![
-            workspace("1", vec![client(10, "foot", "term"), client(11, "firefox", "web")]),
+            workspace(
+                "1",
+                vec![client(10, "foot", "term"), client(11, "firefox", "web")],
+            ),
             workspace("2", vec![client(20, "firefox", "docs")]),
         ];
         assert_eq!(tab_candidates(&workspaces, "firefox"), vec![11, 20]);

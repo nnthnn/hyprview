@@ -1,6 +1,6 @@
 use serde::Deserialize;
-use std::path::PathBuf;
 use std::ffi::CStr;
+use std::path::PathBuf;
 
 /// RGBA color represented as four f64 values in [0.0, 1.0].
 #[derive(Clone, Copy, Deserialize)]
@@ -20,7 +20,6 @@ impl Color {
         }
     }
 }
-
 
 /// Newtype so serde can deserialize a hex string into an RGBA tuple.
 #[derive(Clone, Copy)]
@@ -143,20 +142,20 @@ pub struct ColorsConfig {
 impl Default for ColorsConfig {
     fn default() -> Self {
         Self {
-            background:         Color::Array([0.0,  0.0,  0.0,  0.75]),
-            card:               Color::Array([0.12, 0.12, 0.15, 0.95]),
-            selection:          Color::Array([0.4,  0.6,  1.0,  0.9 ]),
-            label:              Color::Array([0.85, 0.85, 0.9,  1.0 ]),
-            empty_label:        Color::Array([0.5,  0.5,  0.55, 0.8 ]),
-            window_label:       Color::Array([1.0,  1.0,  1.0,  0.9 ]),
-            active_window:      Color::Array([1.0,  0.75, 0.2,  0.95]),
-            window_border:      Color::Array([1.0,  1.0,  1.0,  0.15]),
-            hover_border:       Color::Array([1.0,  1.0,  1.0,  0.6 ]),
-            hover_overlay:      Color::Array([1.0,  1.0,  1.0,  0.15]),
+            background: Color::Array([0.0, 0.0, 0.0, 0.75]),
+            card: Color::Array([0.12, 0.12, 0.15, 0.95]),
+            selection: Color::Array([0.4, 0.6, 1.0, 0.9]),
+            label: Color::Array([0.85, 0.85, 0.9, 1.0]),
+            empty_label: Color::Array([0.5, 0.5, 0.55, 0.8]),
+            window_label: Color::Array([1.0, 1.0, 1.0, 0.9]),
+            active_window: Color::Array([1.0, 0.75, 0.2, 0.95]),
+            window_border: Color::Array([1.0, 1.0, 1.0, 0.15]),
+            hover_border: Color::Array([1.0, 1.0, 1.0, 0.6]),
+            hover_overlay: Color::Array([1.0, 1.0, 1.0, 0.15]),
             tooltip_background: Color::Array([0.06, 0.06, 0.10, 0.95]),
-            tooltip_name:       Color::Array([1.0,  1.0,  1.0,  0.95]),
-            tooltip_class:      Color::Array([0.7,  0.7,  0.75, 0.8 ]),
-            tooltip_title:      Color::Array([0.85, 0.85, 0.9,  0.9 ]),
+            tooltip_name: Color::Array([1.0, 1.0, 1.0, 0.95]),
+            tooltip_class: Color::Array([0.7, 0.7, 0.75, 0.8]),
+            tooltip_title: Color::Array([0.85, 0.85, 0.9, 0.9]),
         }
     }
 }
@@ -202,58 +201,84 @@ fn deserialize_key_list<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Vec<St
         }
         fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Vec<String>, A::Error> {
             let mut out = Vec::new();
-            while let Some(k) = seq.next_element::<String>()? { out.push(k); }
+            while let Some(k) = seq.next_element::<String>()? {
+                out.push(k);
+            }
             Ok(out)
         }
     }
     d.deserialize_any(V)
 }
 
-fn default_close()       -> Vec<String> { vec!["Escape".into()] }
-fn default_confirm()     -> Vec<String> { vec!["Return".into()] }
-fn default_left()        -> Vec<String> { vec!["Left".into(), "h".into()] }
-fn default_right()       -> Vec<String> { vec!["Right".into(), "l".into()] }
-fn default_up()          -> Vec<String> { vec!["Up".into(), "k".into()] }
-fn default_down()        -> Vec<String> { vec!["Down".into(), "j".into()] }
-fn default_move_window()   -> Vec<String> { vec!["m".into()] }
-fn default_close_window()  -> Vec<String> { vec!["Delete".into()] }
-fn default_tab()           -> Vec<String> { vec!["Tab".into()] }
+fn default_close() -> Vec<String> {
+    vec!["Escape".into()]
+}
+fn default_confirm() -> Vec<String> {
+    vec!["Return".into()]
+}
+fn default_left() -> Vec<String> {
+    vec!["Left".into(), "h".into()]
+}
+fn default_right() -> Vec<String> {
+    vec!["Right".into(), "l".into()]
+}
+fn default_up() -> Vec<String> {
+    vec!["Up".into(), "k".into()]
+}
+fn default_down() -> Vec<String> {
+    vec!["Down".into(), "j".into()]
+}
+fn default_move_window() -> Vec<String> {
+    vec!["m".into()]
+}
+fn default_close_window() -> Vec<String> {
+    vec!["Delete".into()]
+}
+fn default_tab() -> Vec<String> {
+    vec!["Tab".into()]
+}
 
 #[derive(Deserialize, Clone)]
 #[serde(default)]
 pub struct KeybindingsConfig {
-    #[serde(default = "default_close",        deserialize_with = "deserialize_key_list")]
+    #[serde(default = "default_close", deserialize_with = "deserialize_key_list")]
     pub close: Vec<String>,
-    #[serde(default = "default_confirm",      deserialize_with = "deserialize_key_list")]
+    #[serde(default = "default_confirm", deserialize_with = "deserialize_key_list")]
     pub confirm: Vec<String>,
-    #[serde(default = "default_left",         deserialize_with = "deserialize_key_list")]
+    #[serde(default = "default_left", deserialize_with = "deserialize_key_list")]
     pub left: Vec<String>,
-    #[serde(default = "default_right",        deserialize_with = "deserialize_key_list")]
+    #[serde(default = "default_right", deserialize_with = "deserialize_key_list")]
     pub right: Vec<String>,
-    #[serde(default = "default_up",           deserialize_with = "deserialize_key_list")]
+    #[serde(default = "default_up", deserialize_with = "deserialize_key_list")]
     pub up: Vec<String>,
-    #[serde(default = "default_down",         deserialize_with = "deserialize_key_list")]
+    #[serde(default = "default_down", deserialize_with = "deserialize_key_list")]
     pub down: Vec<String>,
-    #[serde(default = "default_move_window",  deserialize_with = "deserialize_key_list")]
+    #[serde(
+        default = "default_move_window",
+        deserialize_with = "deserialize_key_list"
+    )]
     pub move_window: Vec<String>,
-    #[serde(default = "default_close_window", deserialize_with = "deserialize_key_list")]
+    #[serde(
+        default = "default_close_window",
+        deserialize_with = "deserialize_key_list"
+    )]
     pub close_window: Vec<String>,
-    #[serde(default = "default_tab",          deserialize_with = "deserialize_key_list")]
+    #[serde(default = "default_tab", deserialize_with = "deserialize_key_list")]
     pub tab: Vec<String>,
 }
 
 impl Default for KeybindingsConfig {
     fn default() -> Self {
         Self {
-            close:        default_close(),
-            confirm:      default_confirm(),
-            left:         default_left(),
-            right:        default_right(),
-            up:           default_up(),
-            down:         default_down(),
-            move_window:  default_move_window(),
+            close: default_close(),
+            confirm: default_confirm(),
+            left: default_left(),
+            right: default_right(),
+            up: default_up(),
+            down: default_down(),
+            move_window: default_move_window(),
             close_window: default_close_window(),
-            tab:          default_tab(),
+            tab: default_tab(),
         }
     }
 }
@@ -317,25 +342,67 @@ impl Config {
 
     fn warn_unknown_keys(text: &str, path: &str) {
         const SECTIONS: &[(&str, &[&str])] = &[
-            ("appearance", &[
-                "font", "label_font", "tooltip_font",
-                "card_padding", "card_radius", "max_card_width", "max_card_height",
-                "label_height", "thumb_padding", "select_border", "window_gap", "columns",
-                "show_app_icons", "icon_size",
-            ]),
-            ("colors", &[
-                "background", "card", "selection", "label", "empty_label",
-                "window_label", "active_window", "window_border",
-                "hover_border", "hover_overlay",
-                "tooltip_background", "tooltip_name", "tooltip_class", "tooltip_title",
-            ]),
-            ("behavior", &[
-                "no_preview", "switch_on_move", "allow_mouse", "show_empty_workspaces",
-            ]),
-            ("keybindings", &[
-                "close", "confirm", "left", "right", "up", "down",
-                "move_window", "close_window", "tab",
-            ]),
+            (
+                "appearance",
+                &[
+                    "font",
+                    "label_font",
+                    "tooltip_font",
+                    "card_padding",
+                    "card_radius",
+                    "max_card_width",
+                    "max_card_height",
+                    "label_height",
+                    "thumb_padding",
+                    "select_border",
+                    "window_gap",
+                    "columns",
+                    "show_app_icons",
+                    "icon_size",
+                ],
+            ),
+            (
+                "colors",
+                &[
+                    "background",
+                    "card",
+                    "selection",
+                    "label",
+                    "empty_label",
+                    "window_label",
+                    "active_window",
+                    "window_border",
+                    "hover_border",
+                    "hover_overlay",
+                    "tooltip_background",
+                    "tooltip_name",
+                    "tooltip_class",
+                    "tooltip_title",
+                ],
+            ),
+            (
+                "behavior",
+                &[
+                    "no_preview",
+                    "switch_on_move",
+                    "allow_mouse",
+                    "show_empty_workspaces",
+                ],
+            ),
+            (
+                "keybindings",
+                &[
+                    "close",
+                    "confirm",
+                    "left",
+                    "right",
+                    "up",
+                    "down",
+                    "move_window",
+                    "close_window",
+                    "tab",
+                ],
+            ),
         ];
         let known_sections: Vec<&str> = SECTIONS.iter().map(|(s, _)| *s).collect();
 
@@ -348,10 +415,16 @@ impl Config {
                 continue;
             }
             if let toml::Value::Table(section) = val {
-                let known = SECTIONS.iter().find(|(s, _)| s == key).map(|(_, k)| *k).unwrap_or(&[]);
+                let known = SECTIONS
+                    .iter()
+                    .find(|(s, _)| s == key)
+                    .map(|(_, k)| *k)
+                    .unwrap_or(&[]);
                 for field in section.keys() {
                     if !known.contains(&field.as_str()) {
-                        eprintln!("hyprview: config warning in {path}: unknown key [{key}].{field}");
+                        eprintln!(
+                            "hyprview: config warning in {path}: unknown key [{key}].{field}"
+                        );
                     }
                 }
             }

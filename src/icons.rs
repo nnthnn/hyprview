@@ -60,9 +60,8 @@ pub(crate) fn icon_name_candidates(class_name: &str) -> Vec<String> {
 /// stored as `[B, G, R, A]` per pixel, while tiny-skia provides `[R, G, B, A]`.
 pub(crate) fn premultiplied_rgba_to_cairo_argb(rgba: &[u8]) -> Vec<u8> {
     let mut out = Vec::with_capacity(rgba.len());
-    for px in rgba.chunks_exact(4) {
-        let [r, g, b, a] = [px[0], px[1], px[2], px[3]];
-        out.extend_from_slice(&[b, g, r, a]);
+    for [r, g, b, a] in rgba.as_chunks::<4>().0 {
+        out.extend_from_slice(&[*b, *g, *r, *a]);
     }
     out
 }

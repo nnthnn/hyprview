@@ -13,10 +13,10 @@ pub struct Thumbnail {
 fn rounded_rect(cr: &Context, x: f64, y: f64, w: f64, h: f64, r: f64) {
     use std::f64::consts::PI;
     cr.new_sub_path();
-    cr.arc(x + w - r, y + r,     r, -PI / 2.0, 0.0);
-    cr.arc(x + w - r, y + h - r, r,  0.0,      PI / 2.0);
-    cr.arc(x + r,     y + h - r, r,  PI / 2.0, PI);
-    cr.arc(x + r,     y + r,     r,  PI,       3.0 * PI / 2.0);
+    cr.arc(x + w - r, y + r, r, -PI / 2.0, 0.0);
+    cr.arc(x + w - r, y + h - r, r, 0.0, PI / 2.0);
+    cr.arc(x + r, y + h - r, r, PI / 2.0, PI);
+    cr.arc(x + r, y + r, r, PI, 3.0 * PI / 2.0);
     cr.close_path();
 }
 
@@ -26,7 +26,14 @@ fn find_thumb(thumbnails: &[Thumbnail], address: u64) -> Option<&Thumbnail> {
 
 /// Bottom-right-corner placement for a fixed-size icon inset by `margin`
 /// from the edges of a `(rx, ry, rw, rh)` rect. Returns `(x, y, w, h)`.
-fn icon_rect(rx: f64, ry: f64, rw: f64, rh: f64, icon_size: f64, margin: f64) -> (f64, f64, f64, f64) {
+fn icon_rect(
+    rx: f64,
+    ry: f64,
+    rw: f64,
+    rh: f64,
+    icon_size: f64,
+    margin: f64,
+) -> (f64, f64, f64, f64) {
     let x = rx + rw - icon_size - margin;
     let y = ry + rh - icon_size - margin;
     (x, y, icon_size, icon_size)
@@ -169,9 +176,7 @@ fn draw_client(
     // Window label (class name or title)
     if rw > 40.0 && rh > 20.0 {
         let layout = pangocairo::functions::create_layout(cr);
-        const GENERIC_TITLES: &[&str] = &[
-            "New Window", "New Tab", "Window", "window", "Untitled",
-        ];
+        const GENERIC_TITLES: &[&str] = &["New Window", "New Tab", "Window", "window", "Untitled"];
         let initial_ok = !client.initial_title.is_empty()
             && !GENERIC_TITLES.contains(&client.initial_title.as_str());
         let name = if initial_ok {
@@ -199,7 +204,14 @@ fn draw_client(
             let margin = 4.0;
             let (ix, iy, iw, ih) = icon_rect(rx, ry, rw, rh, icon_size, margin);
             let backing_pad = 2.0;
-            rounded_rect(cr, ix - backing_pad, iy - backing_pad, iw + backing_pad * 2.0, ih + backing_pad * 2.0, 4.0);
+            rounded_rect(
+                cr,
+                ix - backing_pad,
+                iy - backing_pad,
+                iw + backing_pad * 2.0,
+                ih + backing_pad * 2.0,
+                4.0,
+            );
             cr.set_source_rgba(0.0, 0.0, 0.0, 0.45);
             cr.fill().ok();
 
@@ -243,13 +255,32 @@ pub struct DrawParams<'a> {
 }
 
 pub fn draw(p: DrawParams<'_>) -> Vec<u8> {
-    let DrawParams { width, height, workspaces, selected_index, thumbnails, cfg, active_window_address, hovered_window, pointer_x, pointer_y, filter_match, tab_target, filter, icon_cache } = p;
+    let DrawParams {
+        width,
+        height,
+        workspaces,
+        selected_index,
+        thumbnails,
+        cfg,
+        active_window_address,
+        hovered_window,
+        pointer_x,
+        pointer_y,
+        filter_match,
+        tab_target,
+        filter,
+        icon_cache,
+    } = p;
     let stride = width * 4;
     let size = (stride * height) as usize;
     let buf = vec![0u8; size];
 
     let surface = match ImageSurface::create_for_data(
-        buf, Format::ARgb32, width as i32, height as i32, stride as i32,
+        buf,
+        Format::ARgb32,
+        width as i32,
+        height as i32,
+        stride as i32,
     ) {
         Ok(s) => s,
         Err(_) => return vec![0u8; size],
@@ -272,13 +303,16 @@ pub fn draw(p: DrawParams<'_>) -> Vec<u8> {
     }
 
     let n = workspaces.len();
-    let cols = if cfg.appearance.columns > 0 { cfg.appearance.columns.min(n) }
-               else { ((n as f64).sqrt().ceil() as usize).max(1) };
+    let cols = if cfg.appearance.columns > 0 {
+        cfg.appearance.columns.min(n)
+    } else {
+        ((n as f64).sqrt().ceil() as usize).max(1)
+    };
     let rows = n.div_ceil(cols);
     let pad = cfg.appearance.card_padding;
 
-    let card_w = ((width as f64 - pad * (cols + 1) as f64) / cols as f64)
-        .min(cfg.appearance.max_card_width);
+    let card_w =
+        ((width as f64 - pad * (cols + 1) as f64) / cols as f64).min(cfg.appearance.max_card_width);
     let card_h = ((height as f64 - pad * (rows + 1) as f64) / rows as f64)
         .min(cfg.appearance.max_card_height);
 
@@ -302,7 +336,14 @@ pub fn draw(p: DrawParams<'_>) -> Vec<u8> {
         // Selection highlight
         if i == selected_index {
             let (sr, sg, sb, sa) = cfg.colors.selection.rgba();
-            rounded_rect(&cr, cx - select_border_w, cy - select_border_w, card_w + 2.0 * select_border_w, card_h + 2.0 * select_border_w, r + 2.0);
+            rounded_rect(
+                &cr,
+                cx - select_border_w,
+                cy - select_border_w,
+                card_w + 2.0 * select_border_w,
+                card_h + 2.0 * select_border_w,
+                r + 2.0,
+            );
             cr.set_source_rgba(sr, sg, sb, sa);
             cr.fill().ok();
         }
@@ -317,7 +358,11 @@ pub fn draw(p: DrawParams<'_>) -> Vec<u8> {
         {
             let layout = pangocairo::functions::create_layout(&cr);
             // Named workspaces without a number (sway: num == -1) show just the name.
-            let mut label = if ws.id >= 1 { ws.id.to_string() } else { String::new() };
+            let mut label = if ws.id >= 1 {
+                ws.id.to_string()
+            } else {
+                String::new()
+            };
             if !ws.name.is_empty() && ws.name != label {
                 if !label.is_empty() {
                     label.push(' ');
@@ -351,7 +396,10 @@ pub fn draw(p: DrawParams<'_>) -> Vec<u8> {
             let (tw, th) = layout.pixel_size();
             let (er, eg, eb, ea) = cfg.colors.empty_label.rgba();
             cr.set_source_rgba(er, eg, eb, ea);
-            cr.move_to(cx + (card_w - tw as f64) / 2.0, win_y + (win_h - th as f64) / 2.0);
+            cr.move_to(
+                cx + (card_w - tw as f64) / 2.0,
+                win_y + (win_h - th as f64) / 2.0,
+            );
             pangocairo::functions::show_layout(&cr, &layout);
             continue;
         }
@@ -360,7 +408,12 @@ pub fn draw(p: DrawParams<'_>) -> Vec<u8> {
         let (min_x, min_y, max_x, max_y) = ws.clients.iter().fold(
             (i32::MAX, i32::MAX, i32::MIN, i32::MIN),
             |(mix, miy, mxx, mxy), c| {
-                (mix.min(c.x), miy.min(c.y), mxx.max(c.x + c.w), mxy.max(c.y + c.h))
+                (
+                    mix.min(c.x),
+                    miy.min(c.y),
+                    mxx.max(c.x + c.w),
+                    mxy.max(c.y + c.h),
+                )
             },
         );
 
@@ -372,7 +425,24 @@ pub fn draw(p: DrawParams<'_>) -> Vec<u8> {
         let off_y = win_y + (win_h - ws_h * scale) / 2.0;
 
         for client in &ws.clients {
-            draw_client(&cr, cfg, client, min_x, min_y, scale, off_x, off_y, thumbnails, active_window_address, hovered_window, filter_match, tab_target, filter, &window_font, icon_cache);
+            draw_client(
+                &cr,
+                cfg,
+                client,
+                min_x,
+                min_y,
+                scale,
+                off_x,
+                off_y,
+                thumbnails,
+                active_window_address,
+                hovered_window,
+                filter_match,
+                tab_target,
+                filter,
+                &window_font,
+                icon_cache,
+            );
         }
 
         // Dim card if it doesn't match the active filter
@@ -380,8 +450,7 @@ pub fn draw(p: DrawParams<'_>) -> Vec<u8> {
             let f = filter.to_lowercase();
             let matches = ws.name.to_lowercase().contains(&f)
                 || ws.clients.iter().any(|c| {
-                    c.class_name.to_lowercase().contains(&f)
-                        || c.title.to_lowercase().contains(&f)
+                    c.class_name.to_lowercase().contains(&f) || c.title.to_lowercase().contains(&f)
                 });
             if !matches {
                 rounded_rect(&cr, cx, cy, card_w, card_h, r);
@@ -393,11 +462,13 @@ pub fn draw(p: DrawParams<'_>) -> Vec<u8> {
 
     // Hover tooltip
     if let Some(addr) = hovered_window {
-        let client = workspaces.iter().flat_map(|ws| ws.clients.iter()).find(|c| c.address == addr);
+        let client = workspaces
+            .iter()
+            .flat_map(|ws| ws.clients.iter())
+            .find(|c| c.address == addr);
         if let Some(c) = client {
-            const GENERIC_TITLES: &[&str] = &[
-                "New Window", "New Tab", "Window", "window", "Untitled",
-            ];
+            const GENERIC_TITLES: &[&str] =
+                &["New Window", "New Tab", "Window", "window", "Untitled"];
             let app = if !c.initial_title.is_empty()
                 && !GENERIC_TITLES.contains(&c.initial_title.as_str())
             {
@@ -409,7 +480,7 @@ pub fn draw(p: DrawParams<'_>) -> Vec<u8> {
             let show_class = full_class != app && !full_class.is_empty();
 
             let tf = &cfg.appearance.tooltip_font;
-            let name_font  = pango::FontDescription::from_string(&format!("{tf} Bold 13"));
+            let name_font = pango::FontDescription::from_string(&format!("{tf} Bold 13"));
             let class_font = pango::FontDescription::from_string(&format!("{tf} 10"));
             let title_font = pango::FontDescription::from_string(&format!("{tf} 11"));
 
@@ -427,7 +498,7 @@ pub fn draw(p: DrawParams<'_>) -> Vec<u8> {
             let line_gap = 4.0_f64;
             let icon_gap = 8.0_f64;
 
-            let name_l  = make_layout(app, &name_font, max_w);
+            let name_l = make_layout(app, &name_font, max_w);
             let class_l = show_class.then(|| make_layout(full_class, &class_font, max_w));
             let title_l = (!c.title.is_empty()).then(|| make_layout(&c.title, &title_font, max_w));
 
@@ -437,27 +508,42 @@ pub fn draw(p: DrawParams<'_>) -> Vec<u8> {
 
             let icon = if cfg.appearance.show_app_icons && !c.class_name.is_empty() {
                 let size = clamped_icon_size(cfg.appearance.icon_size);
-                icon_cache.get(&c.class_name, size as u32).map(|surface| (surface, size))
+                icon_cache
+                    .get(&c.class_name, size as u32)
+                    .map(|surface| (surface, size))
             } else {
                 None
             };
             let icon_size = icon.as_ref().map(|(_, size)| *size).unwrap_or(0.0);
-            let (name_x_offset, name_row_h) = tooltip_name_row_metrics(icon_size, icon_gap, nh as f64);
+            let (name_x_offset, name_row_h) =
+                tooltip_name_row_metrics(icon_size, icon_gap, nh as f64);
 
             let content_w = [name_x_offset + nw as f64, cw as f64, tw as f64]
                 .iter()
                 .copied()
                 .fold(0.0, f64::max);
             let content_h = name_row_h
-                + if show_class { ch as f64 + line_gap } else { 0.0 }
-                + if title_l.is_some() { th as f64 + line_gap } else { 0.0 };
+                + if show_class {
+                    ch as f64 + line_gap
+                } else {
+                    0.0
+                }
+                + if title_l.is_some() {
+                    th as f64 + line_gap
+                } else {
+                    0.0
+                };
 
             let bw = content_w + pad * 2.0;
             let bh = content_h + pad * 2.0;
 
             let margin = 12.0;
-            let bx = (pointer_x + 16.0).min(width as f64 - bw - margin).max(margin);
-            let by = (pointer_y - bh - 8.0).max(margin).min(height as f64 - bh - margin);
+            let bx = (pointer_x + 16.0)
+                .min(width as f64 - bw - margin)
+                .max(margin);
+            let by = (pointer_y - bh - 8.0)
+                .max(margin)
+                .min(height as f64 - bh - margin);
 
             rounded_rect(&cr, bx, by, bw, bh, 8.0);
             let (br, bg, bb, ba) = cfg.colors.tooltip_background.rgba();
@@ -470,7 +556,10 @@ pub fn draw(p: DrawParams<'_>) -> Vec<u8> {
                 let icon_y = ty + (name_row_h - size) / 2.0;
                 cr.save().ok();
                 cr.translate(bx + pad, icon_y);
-                cr.scale(size / surface.width() as f64, size / surface.height() as f64);
+                cr.scale(
+                    size / surface.width() as f64,
+                    size / surface.height() as f64,
+                );
                 cr.set_source_surface(surface, 0.0, 0.0).ok();
                 cr.paint().ok();
                 cr.restore().ok();
@@ -478,7 +567,10 @@ pub fn draw(p: DrawParams<'_>) -> Vec<u8> {
 
             let (r, g, b, a) = cfg.colors.tooltip_name.rgba();
             cr.set_source_rgba(r, g, b, a);
-            cr.move_to(bx + pad + name_x_offset, ty + (name_row_h - nh as f64) / 2.0);
+            cr.move_to(
+                bx + pad + name_x_offset,
+                ty + (name_row_h - nh as f64) / 2.0,
+            );
             pangocairo::functions::show_layout(&cr, &name_l);
             ty += name_row_h + line_gap;
 
@@ -501,7 +593,8 @@ pub fn draw(p: DrawParams<'_>) -> Vec<u8> {
     // Filter bar
     if !filter.is_empty() {
         let f = filter.to_lowercase();
-        let matched_ws: Vec<&str> = workspaces.iter()
+        let matched_ws: Vec<&str> = workspaces
+            .iter()
             .filter(|ws| {
                 ws.name.to_lowercase().contains(&f)
                     || ws.clients.iter().any(|c| {
@@ -590,7 +683,7 @@ mod tests {
         assert_eq!(w, 24.0);
         assert_eq!(h, 24.0);
         assert_eq!(x, 10.0 + 100.0 - 24.0 - 4.0); // 82.0
-        assert_eq!(y, 20.0 + 60.0 - 24.0 - 4.0);  // 52.0
+        assert_eq!(y, 20.0 + 60.0 - 24.0 - 4.0); // 52.0
     }
 
     #[test]

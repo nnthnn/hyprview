@@ -36,6 +36,10 @@ thumb_padding = 8.0
 select_border = 3.0
 window_gap    = 4.0    # gap between adjacent window thumbnails (px); border sits in this space
 
+# Fixed number of columns in the workspace grid.
+# 0 = auto (square root of the workspace count).
+columns = 0
+
 # Draw each window's app icon in the bottom-right corner of its thumbnail.
 show_app_icons = true
 

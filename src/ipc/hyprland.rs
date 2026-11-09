@@ -4,7 +4,6 @@ use std::os::unix::net::UnixStream;
 
 use super::{ClientInfo, WorkspaceInfo};
 
-
 fn socket_path() -> Option<String> {
     let xdg = std::env::var("XDG_RUNTIME_DIR").ok()?;
     let sig = std::env::var("HYPRLAND_INSTANCE_SIGNATURE").ok()?;
@@ -14,7 +13,9 @@ fn socket_path() -> Option<String> {
 fn hypr_request(cmd: &str) -> Option<String> {
     let path = socket_path()?;
     let mut stream = UnixStream::connect(&path).ok()?;
-    stream.set_read_timeout(Some(std::time::Duration::from_secs(2))).ok();
+    stream
+        .set_read_timeout(Some(std::time::Duration::from_secs(2)))
+        .ok();
     let msg = format!("j/{cmd}");
     stream.write_all(msg.as_bytes()).ok()?;
     stream.shutdown(Shutdown::Write).ok();
@@ -27,7 +28,9 @@ fn hypr_request(cmd: &str) -> Option<String> {
 
 fn json_string<'a>(json: &'a str, key: &str) -> &'a str {
     let needle = format!("\"{key}\":");
-    let Some(pos) = json.find(&needle) else { return "" };
+    let Some(pos) = json.find(&needle) else {
+        return "";
+    };
     let rest = json[pos + needle.len()..].trim_start_matches([' ', '\t']);
     if let Some(inner) = rest.strip_prefix('"') {
         let end = inner.find('"').unwrap_or(0);
@@ -39,7 +42,9 @@ fn json_string<'a>(json: &'a str, key: &str) -> &'a str {
 
 fn json_int(json: &str, key: &str) -> i64 {
     let needle = format!("\"{key}\":");
-    let Some(pos) = json.find(&needle) else { return 0 };
+    let Some(pos) = json.find(&needle) else {
+        return 0;
+    };
     let rest = json[pos + needle.len()..].trim_start_matches([' ', '\t']);
     let num: String = rest
         .chars()
@@ -89,9 +94,13 @@ fn parse_address(json: &str) -> u64 {
 
 fn parse_array_pair(json: &str, key: &str) -> (i32, i32) {
     let needle = format!("\"{key}\":");
-    let Some(pos) = json.find(&needle) else { return (0, 0) };
+    let Some(pos) = json.find(&needle) else {
+        return (0, 0);
+    };
     let rest = &json[pos + needle.len()..];
-    let Some(bracket) = rest.find('[') else { return (0, 0) };
+    let Some(bracket) = rest.find('[') else {
+        return (0, 0);
+    };
     let inner = &rest[bracket + 1..];
     let a: i32 = inner
         .chars()
@@ -99,7 +108,9 @@ fn parse_array_pair(json: &str, key: &str) -> (i32, i32) {
         .collect::<String>()
         .parse()
         .unwrap_or(0);
-    let Some(comma) = inner.find(',') else { return (a, 0) };
+    let Some(comma) = inner.find(',') else {
+        return (a, 0);
+    };
     let b: i32 = inner[comma + 1..]
         .trim_start()
         .chars()
@@ -176,7 +187,9 @@ pub fn get_workspaces() -> Vec<WorkspaceInfo> {
 
 fn dispatch(cmd: &str) {
     let Some(path) = socket_path() else { return };
-    let Ok(mut stream) = UnixStream::connect(&path) else { return };
+    let Ok(mut stream) = UnixStream::connect(&path) else {
+        return;
+    };
     let msg = format!("/dispatch {cmd}");
     let _ = stream.write_all(msg.as_bytes());
     let _ = stream.shutdown(Shutdown::Write);
@@ -195,7 +208,9 @@ pub fn move_window_to_workspace(window_address: u64, workspace_id: i32) {
 }
 
 pub fn focus_window(_workspace_id: i32, address: u64, _cx: i32, _cy: i32) {
-    dispatch(&format!("hl.dsp.focus({{ window = \"address:0x{address:x}\"}})"));
+    dispatch(&format!(
+        "hl.dsp.focus({{ window = \"address:0x{address:x}\"}})"
+    ));
     // Query the window's actual on-screen position after focus+scroll, then warp cursor there.
     if let Some(json) = hypr_request("activewindow") {
         let (x, y) = parse_array_pair(&json, "at");
@@ -213,7 +228,9 @@ pub fn get_active_workspace_name() -> String {
 
 /// Returns the address of the currently focused window, or 0 if none.
 pub fn close_window(address: u64) {
-    dispatch(&format!("hl.dsp.window.close({{ window = \"address:0x{address:x}\" }})"));
+    dispatch(&format!(
+        "hl.dsp.window.close({{ window = \"address:0x{address:x}\" }})"
+    ));
 }
 
 pub fn get_active_window_address() -> u64 {
