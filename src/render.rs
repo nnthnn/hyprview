@@ -4,10 +4,9 @@ use cairo::{Context, Format, ImageSurface};
 
 pub struct Thumbnail {
     pub address: u64,
-    pub data: Vec<u8>,
-    pub width: u32,
-    pub height: u32,
-    pub stride: u32,
+    /// Decoded once when the capture completes; redraws reuse the surface
+    /// instead of cloning the pixel buffer and recreating it every frame.
+    pub surface: ImageSurface,
 }
 
 fn rounded_rect(cr: &Context, x: f64, y: f64, w: f64, h: f64, r: f64) {
@@ -95,22 +94,17 @@ fn draw_client(
 
     // Window thumbnail or fallback colored rect
     if let Some(thumb) = find_thumb(thumbnails, client.address) {
-        if let Ok(img) = ImageSurface::create_for_data(
-            thumb.data.clone(),
-            Format::ARgb32,
-            thumb.width as i32,
-            thumb.height as i32,
-            thumb.stride as i32,
-        ) {
-            cr.save().ok();
-            rounded_rect(cr, rx, ry, rw, rh, 4.0);
-            cr.clip();
-            cr.translate(rx, ry);
-            cr.scale(rw / thumb.width as f64, rh / thumb.height as f64);
-            cr.set_source_surface(&img, 0.0, 0.0).ok();
-            cr.paint().ok();
-            cr.restore().ok();
-        }
+        cr.save().ok();
+        rounded_rect(cr, rx, ry, rw, rh, 4.0);
+        cr.clip();
+        cr.translate(rx, ry);
+        cr.scale(
+            rw / thumb.surface.width() as f64,
+            rh / thumb.surface.height() as f64,
+        );
+        cr.set_source_surface(&thumb.surface, 0.0, 0.0).ok();
+        cr.paint().ok();
+        cr.restore().ok();
     } else {
         let hash: u32 = client
             .class_name
@@ -769,5 +763,58 @@ mod tests {
 
             assert_eq!(pixels.len(), (800 * 600 * 4) as usize);
         }
+    }
+
+    #[test]
+    fn draw_uses_a_stored_thumbnail_surface() {
+        use crate::ipc::{ClientInfo, WorkspaceInfo};
+
+        let client = ClientInfo {
+            class_name: "firefox".to_string(),
+            title: "Mozilla Firefox".to_string(),
+            initial_title: String::new(),
+            address: 1,
+            workspace_id: 1,
+            x: 0,
+            y: 0,
+            w: 800,
+            h: 600,
+        };
+        let ws = WorkspaceInfo {
+            id: 1,
+            name: String::new(),
+            monitor_id: 0,
+            clients: vec![client],
+        };
+        // A 2x2 opaque red thumbnail: the draw path should paint the stored
+        // surface directly rather than recreating one from cloned bytes.
+        let data = [0u8, 0, 255, 255].repeat(4);
+        let surface =
+            ImageSurface::create_for_data(data, Format::ARgb32, 2, 2, 8).expect("test surface");
+        let thumbnails = [Thumbnail {
+            address: 1,
+            surface,
+        }];
+        let cfg = Config::default();
+        let mut icon_cache = crate::icons::IconCache::new();
+
+        let pixels = draw(DrawParams {
+            width: 800,
+            height: 600,
+            workspaces: std::slice::from_ref(&ws),
+            selected_index: 0,
+            thumbnails: &thumbnails,
+            cfg: &cfg,
+            active_window_address: 0,
+            hovered_window: None,
+            pointer_x: 0.0,
+            pointer_y: 0.0,
+            filter_match: None,
+            tab_target: None,
+            filter: "",
+            icon_cache: &mut icon_cache,
+        });
+
+        assert_eq!(pixels.len(), (800 * 600 * 4) as usize);
     }
 }

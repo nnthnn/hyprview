@@ -12,6 +12,14 @@ const GET_TREE: u32 = 4;
 
 const IPC_MAGIC: &[u8; 6] = b"i3-ipc";
 
+// The event loop is single-threaded; a wedged compositor must not block it
+// forever while we wait for a reply header or body. Tests use a short timeout
+// so a deliberately stalled mock server doesn't slow the suite down.
+#[cfg(not(test))]
+const IPC_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(2);
+#[cfg(test)]
+const IPC_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(100);
+
 fn socket_path() -> Option<String> {
     std::env::var("SWAYSOCK")
         .ok()
@@ -21,6 +29,11 @@ fn socket_path() -> Option<String> {
 fn ipc_request(msg_type: u32, payload: &str) -> Option<Vec<u8>> {
     let path = socket_path()?;
     let mut stream = UnixStream::connect(&path).ok()?;
+    // The event loop is single-threaded; a wedged compositor must not block it
+    // forever while we wait for a reply header or body.
+    let timeout = Some(IPC_TIMEOUT);
+    stream.set_read_timeout(timeout).ok()?;
+    stream.set_write_timeout(timeout).ok()?;
 
     let mut msg = Vec::with_capacity(14 + payload.len());
     msg.extend_from_slice(IPC_MAGIC);
@@ -298,6 +311,10 @@ mod tests {
             for _ in 0..3 {
                 serve_one(&listener);
             }
+            // Accept one more connection and never answer: the client must
+            // time out instead of blocking the event loop forever.
+            let (_stream, _) = listener.accept().unwrap();
+            std::thread::sleep(IPC_TIMEOUT + std::time::Duration::from_millis(200));
         });
 
         let workspaces = get_workspaces();
@@ -314,6 +331,9 @@ mod tests {
         assert!(workspaces[1].clients.is_empty());
 
         assert_eq!(get_active_window_address(), 10);
+
+        // A stalled reply must yield None rather than hanging the caller.
+        assert_eq!(ipc_request(GET_WORKSPACES, ""), None);
 
         server.join().unwrap();
         let _ = std::fs::remove_file(&sock);

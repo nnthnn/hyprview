@@ -84,3 +84,7 @@ keys `1`–`9` are fixed and cannot be remapped.
 | `move_window` | `"m"` | Move the active window to the selected workspace |
 | `close_window` | `"Delete"` | Close the hovered or single-match window |
 | `tab` | `"Tab"` | Cycle window highlight; hold Shift to reverse |
+
+Key names and type-to-filter input are interpreted as US-QWERTY ASCII. The
+daemon reads raw evdev keycodes directly and does not use `xkbcommon`, so
+non-US layouts and non-ASCII characters are not supported for filtering.

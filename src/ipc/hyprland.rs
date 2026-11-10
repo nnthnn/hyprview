@@ -26,18 +26,58 @@ fn hypr_request(cmd: &str) -> Option<String> {
 
 // Minimal JSON helpers — avoids pulling in a JSON library for Hyprland's flat JSON.
 
-fn json_string<'a>(json: &'a str, key: &str) -> &'a str {
+/// Decode the escapes that can appear inside a JSON string. Hyprland normally
+/// emits raw UTF-8, but window titles do contain escaped quotes and backslashes.
+fn unescape_json_string(inner: &str) -> String {
+    let mut out = String::with_capacity(inner.len());
+    let mut chars = inner.chars();
+    while let Some(c) = chars.next() {
+        if c != '\\' {
+            out.push(c);
+            continue;
+        }
+        match chars.next() {
+            Some('"') => out.push('"'),
+            Some('\\') => out.push('\\'),
+            Some('/') => out.push('/'),
+            Some('b') => out.push('\u{0008}'),
+            Some('f') => out.push('\u{000c}'),
+            Some('n') => out.push('\n'),
+            Some('r') => out.push('\r'),
+            Some('t') => out.push('\t'),
+            // Unknown escapes (including \u) are kept verbatim.
+            Some(other) => {
+                out.push('\\');
+                out.push(other);
+            }
+            None => out.push('\\'),
+        }
+    }
+    out
+}
+
+fn json_string(json: &str, key: &str) -> String {
     let needle = format!("\"{key}\":");
     let Some(pos) = json.find(&needle) else {
-        return "";
+        return String::new();
     };
     let rest = json[pos + needle.len()..].trim_start_matches([' ', '\t']);
-    if let Some(inner) = rest.strip_prefix('"') {
-        let end = inner.find('"').unwrap_or(0);
-        &inner[..end]
-    } else {
-        ""
+    let Some(inner) = rest.strip_prefix('"') else {
+        return String::new();
+    };
+
+    // Walk to the closing quote, skipping escaped characters.
+    let mut escaped = false;
+    for (i, c) in inner.char_indices() {
+        if escaped {
+            escaped = false;
+        } else if c == '\\' {
+            escaped = true;
+        } else if c == '"' {
+            return unescape_json_string(&inner[..i]);
+        }
     }
+    String::new()
 }
 
 fn json_int(json: &str, key: &str) -> i64 {
@@ -59,15 +99,21 @@ fn json_array_objects(json: &str) -> Vec<&str> {
     let mut depth = 0i32;
     let mut start = 0;
     let mut in_string = false;
+    let mut escaped = false;
 
     for (i, &c) in bytes.iter().enumerate() {
-        if c == b'"' && (i == 0 || bytes[i - 1] != b'\\') {
-            in_string = !in_string;
-        }
         if in_string {
+            if escaped {
+                escaped = false;
+            } else if c == b'\\' {
+                escaped = true;
+            } else if c == b'"' {
+                in_string = false;
+            }
             continue;
         }
         match c {
+            b'"' => in_string = true,
             b'{' => {
                 if depth == 0 {
                     start = i;
@@ -88,7 +134,7 @@ fn json_array_objects(json: &str) -> Vec<&str> {
 
 fn parse_address(json: &str) -> u64 {
     let s = json_string(json, "address");
-    let hex = s.strip_prefix("0x").unwrap_or(s);
+    let hex = s.strip_prefix("0x").unwrap_or(&s);
     u64::from_str_radix(hex, 16).unwrap_or(0)
 }
 
@@ -137,7 +183,7 @@ pub fn get_workspaces() -> Vec<WorkspaceInfo> {
             }
             Some(WorkspaceInfo {
                 id,
-                name: json_string(wj, "name").to_owned(),
+                name: json_string(wj, "name"),
                 monitor_id: json_int(wj, "monitorID") as i32,
                 clients: Vec::new(),
             })
@@ -166,9 +212,9 @@ pub fn get_workspaces() -> Vec<WorkspaceInfo> {
         let (w, h) = parse_array_pair(cj, "size");
 
         let ci = ClientInfo {
-            class_name: json_string(cj, "class").to_owned(),
-            title: json_string(cj, "title").to_owned(),
-            initial_title: json_string(cj, "initialTitle").to_owned(),
+            class_name: json_string(cj, "class"),
+            title: json_string(cj, "title"),
+            initial_title: json_string(cj, "initialTitle"),
             address: parse_address(cj),
             workspace_id,
             x,
@@ -223,7 +269,7 @@ pub fn focus_window(_workspace_id: i32, address: u64, _cx: i32, _cy: i32) {
 
 pub fn get_active_workspace_name() -> String {
     let json = hypr_request("activeworkspace").unwrap_or_default();
-    json_string(&json, "name").to_owned()
+    json_string(&json, "name")
 }
 
 /// Returns the address of the currently focused window, or 0 if none.
@@ -240,4 +286,60 @@ pub fn get_active_window_address() -> u64 {
         return 0;
     }
     parse_address(&json)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn json_string_reads_plain_value() {
+        let json = r#"{"class":"firefox","title":"GitHub"}"#;
+        assert_eq!(json_string(json, "class"), "firefox");
+        assert_eq!(json_string(json, "title"), "GitHub");
+    }
+
+    #[test]
+    fn json_string_handles_escaped_quotes() {
+        let json = r#"{"title":"say \"hi\"","class":"foot"}"#;
+        assert_eq!(json_string(json, "title"), r#"say "hi""#);
+        assert_eq!(json_string(json, "class"), "foot");
+    }
+
+    #[test]
+    fn json_string_handles_escaped_backslash_before_quote() {
+        // Two backslashes encode one literal backslash, so the following quote
+        // is the real terminator, not an escaped quote.
+        let json = r#"{"class":"a\\","title":"b"}"#;
+        assert_eq!(json_string(json, "class"), r"a\");
+        assert_eq!(json_string(json, "title"), "b");
+    }
+
+    #[test]
+    fn json_string_handles_control_escapes() {
+        let json = r#"{"title":"a\nb\tc"}"#;
+        assert_eq!(json_string(json, "title"), "a\nb\tc");
+    }
+
+    #[test]
+    fn json_array_objects_ignores_braces_inside_strings() {
+        let json = r#"[{"title":"a \"}\" b"},{"id":2}]"#;
+        let objs = json_array_objects(json);
+        assert_eq!(objs.len(), 2);
+        assert!(objs[0].contains(r#""title":"a \"}\" b""#));
+    }
+
+    #[test]
+    fn json_array_objects_handles_escaped_backslash_before_brace() {
+        let json = r#"[{"title":"a\\"},{"id":2}]"#;
+        let objs = json_array_objects(json);
+        assert_eq!(objs.len(), 2);
+        assert_eq!(objs[1], r#"{"id":2}"#);
+    }
+
+    #[test]
+    fn parse_address_accepts_prefixed_and_bare_hex() {
+        assert_eq!(parse_address(r#"{"address":"0xabc"}"#), 0xabc);
+        assert_eq!(parse_address(r#"{"address":"abc"}"#), 0xabc);
+    }
 }

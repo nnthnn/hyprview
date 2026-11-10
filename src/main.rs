@@ -269,6 +269,9 @@ struct AppState {
     active_window_address: u64,
     config: Config,
     keys: ResolvedKeys,
+    // CLI overrides are remembered so config reloads can re-merge them.
+    cli_no_preview: bool,
+    cli_allow_mouse: bool,
 
     // Type-to-filter
     filter: String,
@@ -280,6 +283,7 @@ struct AppState {
 
     // Mouse support (only active when --allow-mouse is set).
     allow_mouse: bool,
+    pointer: Option<wl_pointer::WlPointer>,
     pointer_x: f64,
     pointer_y: f64,
     hovered_window: Option<u64>,
@@ -368,10 +372,10 @@ fn next_tab_target(candidates: &[u64], current: u64, reverse: bool) -> Option<u6
 }
 
 impl AppState {
-    fn new(no_preview: bool, allow_mouse: bool, config: Config) -> Self {
+    fn new(cli_no_preview: bool, cli_allow_mouse: bool, config: Config) -> Self {
         // CLI flags override config values (OR semantics: flag=true forces on)
-        let no_preview = no_preview || config.behavior.no_preview;
-        let allow_mouse = allow_mouse || config.behavior.allow_mouse;
+        let no_preview = cli_no_preview || config.behavior.no_preview;
+        let allow_mouse = cli_allow_mouse || config.behavior.allow_mouse;
         Self {
             compositor: None,
             shm: None,
@@ -395,11 +399,14 @@ impl AppState {
             active_window_address: 0,
             keys: ResolvedKeys::from_config(&config.keybindings),
             config,
+            cli_no_preview,
+            cli_allow_mouse,
             filter: String::new(),
             filter_match: None,
             shift_held: false,
             tab_target: None,
             allow_mouse,
+            pointer: None,
             pointer_x: 0.0,
             pointer_y: 0.0,
             hovered_window: None,
@@ -411,6 +418,64 @@ impl AppState {
             capture_queue: VecDeque::new(),
             active_capture: None,
             pending_focus: None,
+        }
+    }
+
+    /// Indices into `workspaces` that the grid actually shows. `selected` and
+    /// all pointer hit-testing index into this list, not the raw workspace list,
+    /// so empty workspaces being hidden cannot shift the selection highlight.
+    fn visible_workspace_indices(&self) -> Vec<usize> {
+        self.workspaces
+            .iter()
+            .enumerate()
+            .filter_map(|(i, ws)| {
+                (self.config.behavior.show_empty_workspaces || !ws.clients.is_empty()).then_some(i)
+            })
+            .collect()
+    }
+
+    fn visible_workspace_count(&self) -> usize {
+        self.workspaces
+            .iter()
+            .filter(|ws| self.config.behavior.show_empty_workspaces || !ws.clients.is_empty())
+            .count()
+    }
+
+    fn clamp_selected(&mut self) {
+        let n = self.visible_workspace_count();
+        if n == 0 {
+            self.selected = 0;
+        } else if self.selected >= n {
+            self.selected = n - 1;
+        }
+    }
+
+    fn selected_workspace(&self) -> Option<&WorkspaceInfo> {
+        self.visible_workspace_indices()
+            .get(self.selected)
+            .map(|&i| &self.workspaces[i])
+    }
+
+    /// Keep the selection on the same named workspace when the visible list
+    /// changes (e.g. `show_empty_workspaces` is toggled by a config reload).
+    fn select_workspace_by_name(&mut self, name: Option<&str>) {
+        if let Some(name) = name {
+            let visible = self.visible_workspace_indices();
+            if let Some(i) = visible
+                .iter()
+                .position(|&i| self.workspaces[i].name == name)
+            {
+                self.selected = i;
+            }
+        }
+        self.clamp_selected();
+    }
+
+    fn grid_cols(&self, n: usize) -> usize {
+        if self.config.appearance.columns > 0 {
+            self.config.appearance.columns.min(n)
+        } else {
+            ((n as f64).sqrt().ceil() as usize).max(1)
         }
     }
 
@@ -461,15 +526,12 @@ impl AppState {
 
     /// Returns true if the overlay should be closed.
     fn handle_key(&mut self, keysym: u32) -> bool {
-        let n = self.workspaces.len();
+        let visible = self.visible_workspace_indices();
+        let n = visible.len();
         if n == 0 {
             return true;
         }
-        let cols = if self.config.appearance.columns > 0 {
-            self.config.appearance.columns.min(n)
-        } else {
-            ((n as f64).sqrt().ceil() as usize).max(1)
-        };
+        let cols = self.grid_cols(n);
         let k = keysym;
 
         // Backspace: pop filter char
@@ -499,7 +561,14 @@ impl AppState {
 
         // Confirm: Tab-highlighted window first, else single filter match, else activate workspace
         if self.keys.confirm.contains(&k) {
-            let target_addr = self.tab_target.or(self.filter_match);
+            // A Tab target can go stale while a filter is active (for example
+            // the filtered workspace/window was closed). Ignore it rather than
+            // focusing something the user can no longer see.
+            let tab_target = self.tab_target.filter(|&addr| {
+                self.filter.is_empty()
+                    || tab_candidates(&self.workspaces, &self.filter).contains(&addr)
+            });
+            let target_addr = tab_target.or(self.filter_match);
             if let Some(addr) = target_addr {
                 let client = self
                     .workspaces
@@ -513,10 +582,9 @@ impl AppState {
             }
             if !self.filter.is_empty() {
                 let f = self.filter.to_lowercase();
-                if let Some(i) = self
-                    .workspaces
+                if let Some(i) = visible
                     .iter()
-                    .position(|ws| workspace_matches(ws, &f))
+                    .position(|&wi| workspace_matches(&self.workspaces[wi], &f))
                 {
                     self.selected = i;
                 }
@@ -525,13 +593,15 @@ impl AppState {
             return true;
         }
 
-        // Number keys: direct jump (only without filter)
+        // Number keys: direct jump (only without filter). Out-of-range digits
+        // are a no-op instead of closing the overlay.
         if self.filter.is_empty() && (XKB_KEY_1..=XKB_KEY_9).contains(&k) {
             let idx = (k - XKB_KEY_1) as usize;
-            if idx < n {
-                ipc::switch_workspace(&self.workspaces[idx]);
+            if let Some(&wi) = visible.get(idx) {
+                ipc::switch_workspace(&self.workspaces[wi]);
+                return true;
             }
-            return true;
+            return false;
         }
 
         // Tab / Shift+Tab: cycle the highlighted window across all workspaces
@@ -551,26 +621,32 @@ impl AppState {
         // Arrow keys always navigate; hjkl only when filter is empty
         let is_arrow = matches!(k, XKB_KEY_LEFT | XKB_KEY_RIGHT | XKB_KEY_UP | XKB_KEY_DOWN);
         if is_arrow || self.filter.is_empty() {
-            if self.keys.right.contains(&k) && self.selected + 1 < n {
+            let nav_key = self.keys.right.contains(&k)
+                || self.keys.left.contains(&k)
+                || self.keys.down.contains(&k)
+                || self.keys.up.contains(&k);
+            // Any navigation press cancels the Tab highlight, even when the
+            // selection can't actually move (already at an edge).
+            if nav_key && self.tab_target.is_some() {
                 self.tab_target = None;
+                self.needs_redraw = true;
+            }
+            if self.keys.right.contains(&k) && self.selected + 1 < n {
                 self.selected += 1;
                 self.needs_redraw = true;
                 return false;
             }
             if self.keys.left.contains(&k) && self.selected > 0 {
-                self.tab_target = None;
                 self.selected -= 1;
                 self.needs_redraw = true;
                 return false;
             }
             if self.keys.down.contains(&k) && self.selected + cols < n {
-                self.tab_target = None;
                 self.selected += cols;
                 self.needs_redraw = true;
                 return false;
             }
             if self.keys.up.contains(&k) && self.selected >= cols {
-                self.tab_target = None;
                 self.selected -= cols;
                 self.needs_redraw = true;
                 return false;
@@ -600,6 +676,7 @@ impl AppState {
                     self.tab_target = None;
                 }
                 self.update_filter_state();
+                self.clamp_selected();
                 self.needs_redraw = true;
             }
             return false;
@@ -622,28 +699,42 @@ impl AppState {
         } else {
             find_single_window_match(&self.workspaces, &f)
         };
-        if let Some(i) = self
-            .workspaces
-            .iter()
-            .position(|ws| workspace_matches(ws, &f))
-        {
-            self.selected = i;
+        // Only reposition the selection for a non-empty filter. Clearing the
+        // filter should leave the user where they were rather than jumping
+        // back to the first card.
+        if !f.is_empty() {
+            let visible = self.visible_workspace_indices();
+            if let Some(i) = visible
+                .iter()
+                .position(|&wi| workspace_matches(&self.workspaces[wi], &f))
+            {
+                self.selected = i;
+            }
         }
+        // Drop a Tab highlight that the new filter excludes.
+        if let Some(addr) = self.tab_target {
+            if !tab_candidates(&self.workspaces, &self.filter).contains(&addr) {
+                self.tab_target = None;
+            }
+        }
+        self.clamp_selected();
     }
 
     fn activate_selected_workspace(&self) {
-        if self.selected < self.workspaces.len() {
-            ipc::switch_workspace(&self.workspaces[self.selected]);
+        if let Some(ws) = self.selected_workspace() {
+            ipc::switch_workspace(ws);
         }
     }
 
     /// Move the active window to the selected workspace. Returns true on success
     /// (overlay should close).
     fn move_active_window_to_selected(&self) -> bool {
-        if self.active_window_address == 0 || self.selected >= self.workspaces.len() {
+        if self.active_window_address == 0 {
             return false;
         }
-        let target = &self.workspaces[self.selected];
+        let Some(target) = self.selected_workspace() else {
+            return false;
+        };
         ipc::move_window_to_workspace(self.active_window_address, target);
         if self.config.behavior.switch_on_move {
             ipc::switch_workspace(target);
@@ -652,16 +743,13 @@ impl AppState {
     }
 
     fn workspace_at(&self, x: f64, y: f64) -> Option<usize> {
-        let n = self.workspaces.len();
+        let visible = self.visible_workspace_indices();
+        let n = visible.len();
         if n == 0 || self.width == 0 || self.height == 0 {
             return None;
         }
 
-        let cols = if self.config.appearance.columns > 0 {
-            self.config.appearance.columns.min(n)
-        } else {
-            ((n as f64).sqrt().ceil() as usize).max(1)
-        };
+        let cols = self.grid_cols(n);
         let rows = n.div_ceil(cols);
         let pad = self.config.appearance.card_padding;
 
@@ -699,15 +787,12 @@ impl AppState {
     // Returns the address of the window under (x, y), or None if the click
     // landed on the card background or outside all cards.
     fn window_at(&self, x: f64, y: f64) -> Option<u64> {
-        let n = self.workspaces.len();
+        let visible = self.visible_workspace_indices();
+        let n = visible.len();
         if n == 0 || self.width == 0 || self.height == 0 {
             return None;
         }
-        let cols = if self.config.appearance.columns > 0 {
-            self.config.appearance.columns.min(n)
-        } else {
-            ((n as f64).sqrt().ceil() as usize).max(1)
-        };
+        let cols = self.grid_cols(n);
         let rows = n.div_ceil(cols);
         let pad = self.config.appearance.card_padding;
         let card_w = ((self.width as f64 - pad * (cols + 1) as f64) / cols as f64)
@@ -721,13 +806,19 @@ impl AppState {
         let lh = self.config.appearance.label_height;
         let tp = self.config.appearance.thumb_padding;
 
-        for (i, ws) in self.workspaces.iter().enumerate() {
+        for (i, &wi) in visible.iter().enumerate() {
+            let ws = &self.workspaces[wi];
             let col = i % cols;
             let row = i / cols;
             let cx = ox + col as f64 * (card_w + pad);
             let cy = oy + row as f64 * (card_h + pad);
             if x < cx || x > cx + card_w || y < cy || y > cy + card_h {
                 continue;
+            }
+            // Empty cards have no windows to hit-test. The min/max fold below
+            // would overflow on an empty client list.
+            if ws.clients.is_empty() {
+                return None;
             }
             // Inside this card — hit-test individual windows
             let win_x = cx + tp;
@@ -862,8 +953,11 @@ impl Dispatch<wl_seat::WlSeat, ()> for AppState {
             if caps.contains(wl_seat::Capability::Keyboard) {
                 seat.get_keyboard(qh, ());
             }
-            if state.allow_mouse && caps.contains(wl_seat::Capability::Pointer) {
-                seat.get_pointer(qh, ());
+            if state.allow_mouse
+                && caps.contains(wl_seat::Capability::Pointer)
+                && state.pointer.is_none()
+            {
+                state.pointer = Some(seat.get_pointer(qh, ()));
             }
         }
     }
@@ -1083,6 +1177,33 @@ fn create_shm_fd(size: usize) -> Option<OwnedFd> {
     Some(fd)
 }
 
+/// Write the whole buffer to `fd`, retrying short writes and EINTR. A single
+/// `write()` can legally return fewer bytes than requested (notably for large
+/// shm buffers), which would otherwise leave the frame partially filled.
+fn write_all_fd(fd: std::os::fd::RawFd, data: &[u8]) -> bool {
+    let mut offset = 0;
+    while offset < data.len() {
+        let n = unsafe {
+            libc::write(
+                fd,
+                data[offset..].as_ptr() as *const libc::c_void,
+                data.len() - offset,
+            )
+        };
+        if n < 0 {
+            if std::io::Error::last_os_error().kind() == std::io::ErrorKind::Interrupted {
+                continue;
+            }
+            return false;
+        }
+        if n == 0 {
+            return false;
+        }
+        offset += n as usize;
+    }
+    true
+}
+
 fn show(state: &mut AppState, qh: &QueueHandle<AppState>) -> bool {
     let (compositor, layer_shell) = match (&state.compositor, &state.layer_shell) {
         (Some(c), Some(l)) => (c, l),
@@ -1115,8 +1236,7 @@ fn show(state: &mut AppState, qh: &QueueHandle<AppState>) -> bool {
     true
 }
 
-fn hide(state: &mut AppState) {
-    // Cancel any in-flight thumbnail capture
+fn cancel_capture(state: &mut AppState) {
     state.capture_queue.clear();
     state.pending_capture = None;
     if let Some(cap) = state.active_capture.take() {
@@ -1132,6 +1252,11 @@ fn hide(state: &mut AppState) {
         }
         cap.frame.destroy();
     }
+}
+
+fn hide(state: &mut AppState) {
+    // Cancel any in-flight thumbnail capture
+    cancel_capture(state);
 
     if let Some(buf) = state.wl_buf.take() {
         buf.destroy();
@@ -1148,22 +1273,33 @@ fn hide(state: &mut AppState) {
     state.tab_target = None;
     state.workspaces.clear();
     state.thumbnails.clear();
+    // Reset input state that only makes sense while the overlay is up, so the
+    // next show can't render a stale tooltip or start a reversed Tab cycle.
+    state.shift_held = false;
+    state.hovered_window = None;
+    state.pointer_x = 0.0;
+    state.pointer_y = 0.0;
+    state.cursor_is_pointer = false;
 }
 
 fn redraw(state: &mut AppState, qh: &QueueHandle<AppState>) {
     if !state.configured || state.width == 0 || state.height == 0 {
         return;
     }
+    state.clamp_selected();
 
-    let visible_workspaces: Vec<_>;
-    let workspaces_to_draw: &[_] = if state.config.behavior.show_empty_workspaces {
+    // `selected`, hit-testing, and keyboard navigation all index the visible
+    // list. Build the same list here so the highlight can never land on a
+    // different card than the one the user selected. The unfiltered list can
+    // be borrowed directly when empty workspaces are shown.
+    let visible_workspaces: Vec<WorkspaceInfo>;
+    let workspaces_to_draw: &[WorkspaceInfo] = if state.config.behavior.show_empty_workspaces {
         &state.workspaces
     } else {
         visible_workspaces = state
-            .workspaces
-            .iter()
-            .filter(|ws| !ws.clients.is_empty())
-            .cloned()
+            .visible_workspace_indices()
+            .into_iter()
+            .map(|i| state.workspaces[i].clone())
             .collect();
         &visible_workspaces
     };
@@ -1193,8 +1329,7 @@ fn redraw(state: &mut AppState, qh: &QueueHandle<AppState>) {
     };
     let raw_fd = fd.as_fd().as_raw_fd();
 
-    let written = unsafe { libc::write(raw_fd, pixels.as_ptr() as *const libc::c_void, size) };
-    if written < 0 {
+    if !write_all_fd(raw_fd, &pixels) {
         return;
     }
 
@@ -1234,8 +1369,11 @@ fn advance_capture(conn: &Connection, state: &mut AppState, qh: &QueueHandle<App
     let active = match state.active_capture.take() {
         Some(a) => a,
         None => {
-            // Start the next capture if the queue is non-empty.
+            // Start the next capture if the queue is non-empty. Drop the queue
+            // entirely when previews can't be captured, otherwise it would keep
+            // the main loop polling at 50 ms intervals for nothing.
             if state.no_preview || state.toplevel_export.is_none() {
+                state.capture_queue.clear();
                 return;
             }
             let address = match state.capture_queue.pop_front() {
@@ -1394,13 +1532,18 @@ fn advance_capture(conn: &Connection, state: &mut AppState, qh: &QueueHandle<App
             if ready {
                 let pixels =
                     unsafe { std::slice::from_raw_parts(mmap_ptr as *const u8, size).to_vec() };
-                state.thumbnails.push(Thumbnail {
-                    address: active.address,
-                    data: pixels,
-                    width,
-                    height,
-                    stride,
-                });
+                if let Ok(surface) = cairo::ImageSurface::create_for_data(
+                    pixels,
+                    cairo::Format::ARgb32,
+                    width as i32,
+                    height as i32,
+                    stride as i32,
+                ) {
+                    state.thumbnails.push(Thumbnail {
+                        address: active.address,
+                        surface,
+                    });
+                }
                 state.needs_redraw = true;
             }
 
@@ -1418,14 +1561,41 @@ fn lock_file_path() -> String {
     format!("{runtime_dir}/hyprview.lock")
 }
 
+/// Open the lock file without following symlinks and without inheriting a
+/// permissive mode. The `/tmp` fallback (used when `XDG_RUNTIME_DIR` is unset)
+/// is world-writable, so a symlink planted there must not be followed.
+fn open_lock_file_at(path: &std::path::Path) -> Option<std::fs::File> {
+    use std::os::unix::ffi::OsStrExt;
+    let cpath = std::ffi::CString::new(path.as_os_str().as_bytes()).ok()?;
+    let fd = unsafe {
+        libc::open(
+            cpath.as_ptr(),
+            libc::O_RDWR | libc::O_CREAT | libc::O_CLOEXEC | libc::O_NOFOLLOW,
+            0o600 as libc::c_uint,
+        )
+    };
+    if fd < 0 {
+        return None;
+    }
+    let file = unsafe { std::fs::File::from_raw_fd(fd) };
+    // Reject directories, FIFOs, devices, etc. (O_NOFOLLOW already rejects
+    // symlinks). Only a regular file may hold the instance lock.
+    let mut st: libc::stat = unsafe { std::mem::zeroed() };
+    if unsafe { libc::fstat(fd, &mut st) } != 0 || (st.st_mode & libc::S_IFMT) != libc::S_IFREG {
+        return None;
+    }
+    // Tighten an existing file that may have been created with a wider mode.
+    unsafe { libc::fchmod(fd, 0o600) };
+    Some(file)
+}
+
+fn open_lock_file() -> Option<std::fs::File> {
+    open_lock_file_at(std::path::Path::new(&lock_file_path()))
+}
+
 fn try_lock_instance() -> Option<std::fs::File> {
     use std::io::Write;
-    let file = std::fs::OpenOptions::new()
-        .create(true)
-        .write(true)
-        .truncate(false)
-        .open(lock_file_path())
-        .ok()?;
+    let file = open_lock_file()?;
     let ret = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) };
     if ret != 0 {
         return None;
@@ -1440,15 +1610,7 @@ fn try_lock_instance() -> Option<std::fs::File> {
 
 fn send_toggle() {
     let path = lock_file_path();
-    let Ok(file) = std::fs::OpenOptions::new()
-        .write(true)
-        .read(true)
-        .create(true)
-        .truncate(false)
-        .open(&path)
-    else {
-        return;
-    };
+    let Some(file) = open_lock_file() else { return };
     let ret = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) };
     if ret == 0 {
         // Got the lock — no daemon running, release and exit
@@ -1575,9 +1737,45 @@ fn main() {
 
         if G_RELOAD.swap(false, Ordering::Relaxed) {
             let new_config = Config::load();
+            let selected_name = state.selected_workspace().map(|ws| ws.name.clone());
             state.keys = ResolvedKeys::from_config(&new_config.keybindings);
             state.config = new_config;
+            // Re-merge CLI flags so behavior changes take effect without a
+            // restart.
+            let was_no_preview = state.no_preview;
+            state.no_preview = state.cli_no_preview || state.config.behavior.no_preview;
+            if state.no_preview && !was_no_preview {
+                cancel_capture(&mut state);
+                state.thumbnails.clear();
+                if state.visible {
+                    state.needs_redraw = true;
+                }
+            } else if was_no_preview
+                && !state.no_preview
+                && state.visible
+                && state.toplevel_export.is_some()
+            {
+                // Preview capture was disabled while the overlay was open;
+                // start filling in thumbnails now that it's enabled again.
+                state.capture_queue.extend(
+                    state
+                        .workspaces
+                        .iter()
+                        .flat_map(|ws| ws.clients.iter().map(|c| c.address)),
+                );
+            }
+            let was_allow_mouse = state.allow_mouse;
+            state.allow_mouse = state.cli_allow_mouse || state.config.behavior.allow_mouse;
+            if state.allow_mouse && !was_allow_mouse {
+                if let Some(seat) = state.seat.as_ref() {
+                    if state.pointer.is_none() {
+                        state.pointer = Some(seat.get_pointer(&qh, ()));
+                    }
+                }
+            }
+            state.icon_cache.refresh();
             if state.visible {
+                state.select_workspace_by_name(selected_name.as_deref());
                 state.needs_redraw = true;
             }
             eprintln!("hyprview: config reloaded");
@@ -1596,21 +1794,22 @@ fn main() {
                     state.workspaces = ipc::get_workspaces();
                     state.thumbnails.clear();
                     let active = ipc::get_active_workspace_name();
-                    state.selected = state
-                        .workspaces
-                        .iter()
-                        .position(|ws| ws.name == active)
-                        .unwrap_or(0);
+                    state.selected = 0;
+                    state.select_workspace_by_name(Some(&active));
                     state.visible = true;
 
                     // Enqueue thumbnail captures; overlay draws immediately
                     // with colored rectangles and redraws as thumbnails arrive.
-                    state.capture_queue.extend(
-                        state
-                            .workspaces
-                            .iter()
-                            .flat_map(|ws| ws.clients.iter().map(|c| c.address)),
-                    );
+                    // Skip the queue entirely when previews are unavailable so
+                    // the loop doesn't poll needlessly.
+                    if !state.no_preview && state.toplevel_export.is_some() {
+                        state.capture_queue.extend(
+                            state
+                                .workspaces
+                                .iter()
+                                .flat_map(|ws| ws.clients.iter().map(|c| c.address)),
+                        );
+                    }
 
                     redraw(&mut state, &qh);
                     conn.flush().ok();
@@ -1934,5 +2133,249 @@ mod tests {
     #[test]
     fn key_name_tab_resolves() {
         assert_eq!(key_name_to_keysym("Tab"), Some(XKB_KEY_TAB));
+    }
+
+    // ── visible workspace mapping ────────────────────────────────────────────
+
+    fn test_state(show_empty: bool) -> AppState {
+        let mut cfg = Config::default();
+        cfg.behavior.show_empty_workspaces = show_empty;
+        AppState::new(false, false, cfg)
+    }
+
+    fn three_workspaces() -> Vec<WorkspaceInfo> {
+        vec![
+            workspace("1", vec![]),
+            workspace("2", vec![client(10, "foot", "term")]),
+            workspace("3", vec![]),
+        ]
+    }
+
+    #[test]
+    fn visible_indices_hide_empty_workspaces_by_default() {
+        let mut st = test_state(false);
+        st.workspaces = three_workspaces();
+        assert_eq!(st.visible_workspace_indices(), vec![1]);
+    }
+
+    #[test]
+    fn visible_indices_include_empty_workspaces_when_configured() {
+        let mut st = test_state(true);
+        st.workspaces = three_workspaces();
+        assert_eq!(st.visible_workspace_indices(), vec![0, 1, 2]);
+    }
+
+    #[test]
+    fn selected_index_maps_into_the_visible_list() {
+        let mut st = test_state(false);
+        st.workspaces = three_workspaces();
+        st.selected = 0;
+        assert_eq!(
+            st.selected_workspace().map(|ws| ws.name.as_str()),
+            Some("2")
+        );
+    }
+
+    #[test]
+    fn clamp_selected_survives_a_shrinking_visible_list() {
+        let mut st = test_state(false);
+        st.workspaces = three_workspaces();
+        st.selected = 2;
+        st.clamp_selected();
+        assert_eq!(st.selected, 0);
+    }
+
+    #[test]
+    fn selection_follows_the_same_workspace_when_visibility_changes() {
+        let mut st = test_state(false);
+        st.workspaces = three_workspaces();
+        // Only workspace "2" is visible, so it is index 0.
+        st.selected = 0;
+        let name = st.selected_workspace().unwrap().name.clone();
+
+        st.config.behavior.show_empty_workspaces = true;
+        st.select_workspace_by_name(Some(&name));
+
+        assert_eq!(st.selected, 1);
+        assert_eq!(
+            st.selected_workspace().map(|ws| ws.name.as_str()),
+            Some("2")
+        );
+    }
+
+    #[test]
+    fn workspace_at_returns_a_visible_index() {
+        let mut st = test_state(false);
+        st.workspaces = three_workspaces();
+        st.width = 1000;
+        st.height = 800;
+
+        // Only workspace "2" is visible, so the center card maps to index 0.
+        assert_eq!(st.workspace_at(500.0, 400.0), Some(0));
+        assert_eq!(
+            st.selected_workspace().map(|ws| ws.name.as_str()),
+            Some("2")
+        );
+    }
+
+    #[test]
+    fn window_at_empty_card_returns_none_without_overflowing() {
+        let mut st = test_state(true);
+        st.workspaces = vec![workspace("1", vec![])];
+        st.width = 1000;
+        st.height = 800;
+
+        assert_eq!(st.window_at(500.0, 400.0), None);
+    }
+
+    // ── keyboard state transitions ───────────────────────────────────────────
+
+    #[test]
+    fn arrow_key_clears_tab_target_even_when_selection_cannot_move() {
+        let mut st = test_state(false);
+        st.workspaces = vec![workspace("1", vec![client(10, "foot", "term")])];
+        st.tab_target = Some(10);
+
+        assert!(!st.handle_key(XKB_KEY_LEFT));
+        assert_eq!(st.tab_target, None);
+    }
+
+    #[test]
+    fn clearing_a_filter_keeps_the_current_selection() {
+        let mut st = test_state(false);
+        st.workspaces = vec![
+            workspace("1", vec![client(10, "foot", "term")]),
+            workspace("2", vec![client(20, "firefox", "web")]),
+        ];
+        st.selected = 1;
+
+        st.filter.clear();
+        st.update_filter_state();
+
+        assert_eq!(st.selected, 1);
+    }
+
+    #[test]
+    fn non_empty_filter_selects_the_first_matching_visible_workspace() {
+        let mut st = test_state(false);
+        st.workspaces = vec![
+            workspace("1", vec![client(10, "foot", "term")]),
+            workspace("2", vec![client(20, "firefox", "web")]),
+        ];
+        st.filter = "fire".into();
+
+        st.update_filter_state();
+
+        assert_eq!(st.selected, 1);
+    }
+
+    #[test]
+    fn filter_change_clears_a_tab_target_it_excludes() {
+        let mut st = test_state(false);
+        st.workspaces = vec![workspace(
+            "1",
+            vec![client(10, "foot", "term"), client(20, "firefox", "web")],
+        )];
+        st.tab_target = Some(10);
+        st.filter = "fire".into();
+
+        st.update_filter_state();
+
+        assert_eq!(st.tab_target, None);
+    }
+
+    #[test]
+    fn confirm_ignores_a_stale_tab_target_under_a_filter() {
+        let mut st = test_state(false);
+        st.workspaces = vec![workspace(
+            "1",
+            vec![client(10, "foot", "term"), client(20, "firefox", "web")],
+        )];
+        st.filter = "foot".into();
+        st.filter_match = Some(10);
+        // Bypass update_filter_state so the stale target survives; Confirm
+        // must still reject it and use the filter match.
+        st.tab_target = Some(20);
+
+        assert!(st.handle_key(XKB_KEY_RETURN));
+        assert_eq!(st.pending_focus.map(|(_, addr, _, _)| addr), Some(10));
+    }
+
+    #[test]
+    fn out_of_range_number_key_is_a_no_op() {
+        let mut st = test_state(false);
+        st.workspaces = vec![workspace("1", vec![client(10, "foot", "term")])];
+
+        assert!(!st.handle_key(XKB_KEY_1 + 4));
+    }
+
+    #[test]
+    fn hide_resets_per_show_input_state() {
+        let mut st = test_state(false);
+        st.visible = true;
+        st.shift_held = true;
+        st.hovered_window = Some(10);
+        st.pointer_x = 12.0;
+        st.pointer_y = 34.0;
+        st.cursor_is_pointer = true;
+
+        hide(&mut st);
+
+        assert!(!st.visible);
+        assert!(!st.shift_held);
+        assert_eq!(st.hovered_window, None);
+        assert_eq!(st.pointer_x, 0.0);
+        assert_eq!(st.pointer_y, 0.0);
+        assert!(!st.cursor_is_pointer);
+    }
+
+    // ── lock file hardening ──────────────────────────────────────────────────
+
+    #[test]
+    fn open_lock_file_refuses_symlinks_and_non_regular_files() {
+        use std::os::unix::fs::{symlink, PermissionsExt};
+
+        let dir = std::env::temp_dir().join(format!("hyprview-lock-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let target = dir.join("target");
+        std::fs::write(&target, "x").unwrap();
+        let link = dir.join("link");
+        symlink(&target, &link).unwrap();
+        assert!(open_lock_file_at(&link).is_none());
+        assert!(open_lock_file_at(&dir).is_none());
+
+        let file = open_lock_file_at(&dir.join("lock")).expect("regular file should open");
+        assert_eq!(file.metadata().unwrap().permissions().mode() & 0o777, 0o600);
+        drop(file);
+
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn write_all_fd_writes_the_whole_buffer() {
+        let fd = unsafe { libc::memfd_create(c"hyprview-write-test".as_ptr(), libc::MFD_CLOEXEC) };
+        assert!(fd >= 0);
+        let data = vec![7u8; 1 << 20];
+
+        assert!(write_all_fd(fd, &data));
+        unsafe { libc::lseek(fd, 0, libc::SEEK_SET) };
+
+        let mut out = vec![0u8; data.len()];
+        let mut offset = 0usize;
+        while offset < out.len() {
+            let n = unsafe {
+                libc::read(
+                    fd,
+                    out[offset..].as_mut_ptr() as *mut libc::c_void,
+                    out.len() - offset,
+                )
+            };
+            assert!(n > 0);
+            offset += n as usize;
+        }
+        assert_eq!(out, data);
+        unsafe { libc::close(fd) };
     }
 }
