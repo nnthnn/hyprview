@@ -61,7 +61,7 @@ A [`justfile`](../justfile) wraps the common tasks:
 just check         # format + lint + test
 just fmt           # apply rustfmt
 just build         # release build
-just release       # tag the Cargo.toml version and push it
+just release 0.2.0 # bump, check, commit, tag, and push
 just audit         # cargo-deny advisory check
 just install       # cargo install into ~/.cargo/bin
 just install-hooks # enable the tracked git hooks
@@ -103,9 +103,12 @@ makepkg --printsrcinfo > .SRCINFO
 
 ## Releases
 
-Releases are cut by pushing a `vX.Y.Z` tag that matches `Cargo.toml` (or by
-running `just release` from `main`).
+Releases are cut from `main` with `just release X.Y.Z`. The recipe refuses unless
+the tree is clean and `main` matches `origin/main`, bumps `Cargo.toml`,
+refreshes `Cargo.lock`, runs `just check`, commits as `Release X.Y.Z`, and
+pushes the commit and annotated tag.
 [`.github/workflows/release.yml`](../.github/workflows/release.yml) validates
-the tag, attaches a stable source tarball, and builds an x86_64 binary with a
-sha256 checksum. The release assets are the primary distribution path while
-Arch restricts new AUR accounts and package pushes.
+the tag, generates release notes from the commit history, attaches a stable
+source tarball, and builds an x86_64 binary with a sha256 checksum. The release
+assets are the primary distribution path while Arch restricts new AUR accounts
+and package pushes.
