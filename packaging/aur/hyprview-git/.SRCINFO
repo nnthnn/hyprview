@@ -1,5 +1,5 @@
 pkgbase = hyprview-git
-	pkgdesc = Lightweight workspace overview for Hyprland and Sway with live window thumbnails
+	pkgdesc = Lightweight workspace overview for Hyprland with live window thumbnails
 	pkgver = r0
 	pkgrel = 1
 	url = https://github.com/nnthnn/hyprview

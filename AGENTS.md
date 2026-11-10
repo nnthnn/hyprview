@@ -70,6 +70,23 @@ suite, and a `cargo-deny` advisory audit. Run `./install-hooks.sh` once per clon
 Formatting is enforced: keep `cargo fmt --all --check` clean and let rustfmt own
 alignment rather than hand-aligning columns.
 
+## Releasing
+
+Cut releases from `main` with the `just` recipe — it's the only safe way to make
+the tag:
+
+```sh
+just release 0.2.0
+```
+
+It refuses unless the tree is clean and `main` matches `origin/main`, bumps
+`version` in `Cargo.toml`, refreshes `Cargo.lock`, runs `just check`, commits as
+`Release X.Y.Z`, then pushes the commit and the annotated `vX.Y.Z` tag. Pushing
+the tag runs [`release.yml`](.github/workflows/release.yml), whose first step
+re-checks that the tag equals the `Cargo.toml` version. There is no manual
+changelog; GitHub generates release notes from the commits and pull requests.
+Cut a release by hand only if you replicate every step above.
+
 ## Testing
 
 - Tests are pure unit tests co-located with the code they cover

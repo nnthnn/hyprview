@@ -230,8 +230,8 @@ See [`docs/configuration.md`](docs/configuration.md) for the full reference, or
 Bug reports and pull requests are welcome. See
 [`CONTRIBUTING.md`](CONTRIBUTING.md) for the short version, and
 [`docs/development.md`](docs/development.md) for architecture notes, build and
-test commands, packaging, and the release process. Release history is in
-[`CHANGELOG.md`](CHANGELOG.md).
+test commands, packaging, and the release process. Release notes are generated
+on the [GitHub releases page](https://github.com/nnthnn/hyprview/releases).
 
 ## License
 

@@ -27,45 +27,48 @@ test:
 build:
 	cargo build --release --locked
 
-# Cut a release: bump to X.Y.Z if given, commit, tag, and push.
+# Cut a release: bump the version, commit, tag, and push (triggers release.yml).
 [positional-arguments]
-release version="": check
+release version:
 	#!/usr/bin/env bash
+	# Run from a clean main, e.g. `just release 0.1.0`. The release tag must
+	# point at a commit whose Cargo.toml `version` matches the tag, so this
+	# recipe is the only safe way to cut one.
 	set -euo pipefail
-	requested="${1:-}"
-	current="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1)"
-	if [ -z "$current" ]; then
-		echo "error: could not read version from Cargo.toml" >&2
-		exit 1
-	fi
-	version="${requested:-$current}"
-	if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$ ]]; then
-		echo "error: '${version}' is not a valid X.Y.Z version" >&2
+	version="$1"
+	if ! printf '%s' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+		echo "usage: just release X.Y.Z (e.g. just release 0.1.0)" >&2
 		exit 1
 	fi
 	if [ -n "$(git status --porcelain)" ]; then
-		echo "error: working tree is dirty; commit or stash changes first" >&2
+		echo "working tree is not clean; commit or stash your changes first" >&2
 		exit 1
 	fi
 	branch="$(git rev-parse --abbrev-ref HEAD)"
 	if [ "$branch" != "main" ]; then
-		echo "error: cut releases from main (currently on ${branch})" >&2
+		echo "releases must be cut from main (currently on '${branch}')" >&2
 		exit 1
 	fi
 	if git rev-parse -q --verify "refs/tags/v${version}" >/dev/null; then
-		echo "error: tag v${version} already exists" >&2
+		echo "tag v${version} already exists" >&2
 		exit 1
 	fi
-	if [ "$version" != "$current" ]; then
-		echo "Bumping ${current} -> ${version}"
-		sed -i "0,/^version = \".*\"/s//version = \"${version}\"/" Cargo.toml
-		cargo update -p hyprview --offline
-		git add Cargo.toml Cargo.lock
-		git commit -m "Release v${version}"
+	git fetch --quiet origin main
+	if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
+		echo "local main is not in sync with origin/main; pull or push first" >&2
+		exit 1
 	fi
-	echo "Tagging v${version}"
+	# Bump the version, then let cargo refresh the package entry in Cargo.lock.
+	# This must happen before the checks: clippy runs with --locked, which fails
+	# if the lockfile still names the old version.
+	sed -i -E "s/^version = \".*\"/version = \"${version}\"/" Cargo.toml
+	cargo metadata --format-version 1 >/dev/null
+	just check
+	git add Cargo.toml Cargo.lock
+	git commit -m "Release ${version}"
 	git tag -a "v${version}" -m "v${version}"
-	git push origin "$branch" "v${version}"
+	git push origin main
+	git push origin "v${version}"
 
 # Preview the project site locally at http://localhost:8000.
 site:
