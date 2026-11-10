@@ -133,16 +133,18 @@
     <section class="section" id="install">
       <div class="section-head">
         <p class="eyebrow">Install</p>
-        <h2>Build it, then bind it.</h2>
-        <p>The AUR package is not published yet. Both paths below build the same binary.</p>
+        <h2>Download it, build it, bind it.</h2>
+        <p>Every GitHub release ships a prebuilt x86_64 binary, a checksum, and a stable source tarball. AUR publishing is paused while Arch restricts accounts and pushes.</p>
       </div>
       <div class="install-grid">
         <article class="panel">
-          <h3>Arch Linux</h3>
-          <p>Use the tracked <code>hyprview-git</code> package from the repository.</p>
-          <pre><code>git clone https://github.com/nnthnn/hyprview.git
-cd hyprview/packaging/aur/hyprview-git
-makepkg -si</code></pre>
+          <h3>Prebuilt binary</h3>
+          <p>Requires the Wayland, Cairo, and Pango runtime libraries.</p>
+          <pre><code>curl -LO https://github.com/nnthnn/hyprview/releases/latest/download/hyprview-x86_64-unknown-linux-gnu.tar.gz
+curl -LO https://github.com/nnthnn/hyprview/releases/latest/download/hyprview-x86_64-unknown-linux-gnu.tar.gz.sha256
+sha256sum -c hyprview-x86_64-unknown-linux-gnu.tar.gz.sha256
+tar xzf hyprview-x86_64-unknown-linux-gnu.tar.gz
+sudo install -Dm755 hyprview/hyprview /usr/local/bin/hyprview</code></pre>
         </article>
         <article class="panel">
           <h3>From source</h3>
@@ -156,8 +158,14 @@ sudo install -Dm755 target/release/hyprview \
         </article>
       </div>
       <p class="install-note">
+        Cargo users can install with <code>cargo install --git https://github.com/nnthnn/hyprview --locked</code>.
+      </p>
+      <p class="install-note">
         Debian/Ubuntu build dependencies: <code>cargo pkg-config libwayland-dev libpango1.0-dev</code>.
         Arch: <code>base-devel rust wayland pango</code>.
+      </p>
+      <p class="install-note">
+        Arch users can build the tracked <code>hyprview-git</code> PKGBUILD locally from <code>packaging/aur/hyprview-git</code> with <code>makepkg -si</code>.
       </p>
       <p class="install-note">
         Also works on Sway in fallback mode: workspace data over i3 IPC, with coloured placeholders instead of live thumbnails.
@@ -245,7 +253,14 @@ tab = "Tab"</code></pre>
       <a href="https://github.com/nnthnn/hyprview/issues">Issues</a>
       <a href="https://github.com/nnthnn/hyprview/blob/main/LICENSE">MIT License</a>
     </nav>
-    <p class="fork-note">hyprview is a fork of <a href="https://github.com/ThiagoAVicente/hyprexpose">hyprexpose</a> by ThiagoAVicente.</p>
+    <div class="footer-bottom">
+      <p class="fork-note">hyprview began as a fork of <a href="https://github.com/ThiagoAVicente/hyprexpose">hyprexpose</a> by ThiagoAVicente and has since diverged into its own project.</p>
+      <p class="footer-meta">
+        MIT · built for Hyprland · made by
+        <a href="https://github.com/nnthnn" class="footer-link">nathan</a> ·
+        <a href="https://ko-fi.com/nnthnn" class="sponsor-link"><span class="heart" aria-hidden="true">♥</span> sponsor</a>
+      </p>
+    </div>
   </footer>
 </body>
 </html>

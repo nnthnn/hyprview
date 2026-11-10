@@ -3,7 +3,8 @@
 Guidance for coding agents working in the hyprview repository. User-facing
 documentation is in [`README.md`](README.md) and the static site in
 [`site/`](site/); the full configuration reference is
-[`docs/configuration.md`](docs/configuration.md), with
+[`docs/configuration.md`](docs/configuration.md), and build/architecture notes
+live in [`docs/development.md`](docs/development.md), with
 [`config.example.toml`](config.example.toml) as the annotated file.
 
 ## What this is
@@ -146,10 +147,10 @@ usually produces hangs, leaked buffers, or a dead overlay.
   `wayland-scanner`; `build.rs` re-runs when it changes. Don't edit the generated
   bindings by hand. `wlr-layer-shell` bindings come from the
   `wayland-protocols-wlr` crate, not a local XML.
-- `docs/superpowers/` contains historical design notes and implementation
-  plans. They are useful context but may describe planned behavior that has
-  since changed (for example, Tab shifting is implemented with raw Shift
-  keycodes, not two configurable bindings). Treat the code as current.
+- `docs/archive/` contains historical design notes and implementation plans.
+  They are useful context but may describe planned behavior that has since
+  changed (for example, Tab shifting is implemented with raw Shift keycodes,
+  not two configurable bindings). Treat the code as current.
 - Keep `README.md`, `docs/configuration.md`, `config.example.toml`, and the
   config structs in sync. The README controls table and the keybindings table
   in `docs/configuration.md` must match `KeybindingsConfig` defaults.

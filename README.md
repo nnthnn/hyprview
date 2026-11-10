@@ -53,13 +53,33 @@ opt in, the mouse.
 
 ## Install
 
-The AUR package isn't published yet, so for now build from source. The tracked
-packaging source is in
-[`packaging/aur/hyprview-git`](packaging/aur/hyprview-git).
+Each [GitHub release](https://github.com/nnthnn/hyprview/releases) includes a
+prebuilt x86_64 binary and a stable source tarball. The binary is dynamically
+linked against Wayland, Cairo, and Pango, so those runtime libraries must be
+installed.
+
+### Prebuilt binary
+
+```
+curl -LO https://github.com/nnthnn/hyprview/releases/latest/download/hyprview-x86_64-unknown-linux-gnu.tar.gz
+curl -LO https://github.com/nnthnn/hyprview/releases/latest/download/hyprview-x86_64-unknown-linux-gnu.tar.gz.sha256
+sha256sum -c hyprview-x86_64-unknown-linux-gnu.tar.gz.sha256
+tar xzf hyprview-x86_64-unknown-linux-gnu.tar.gz
+sudo install -Dm755 hyprview/hyprview /usr/local/bin/hyprview
+```
+
+### Cargo
+
+With a Rust toolchain installed:
+
+```
+cargo install --git https://github.com/nnthnn/hyprview --locked
+```
 
 ### Arch Linux
 
-Using the tracked `hyprview-git` package:
+AUR publishing is paused while Arch restricts new accounts and package pushes,
+so build the tracked `hyprview-git` package locally:
 
 ```
 git clone https://github.com/nnthnn/hyprview.git
@@ -205,83 +225,20 @@ don't silently fall back to defaults.
 See [`docs/configuration.md`](docs/configuration.md) for the full reference, or
 [`config.example.toml`](config.example.toml) for the annotated file.
 
-## How it works
+## Contributing
 
-1. Starts as a daemon, takes a single-instance `flock` in `$XDG_RUNTIME_DIR`,
-   discovers the Wayland globals, and waits in `ppoll`.
-2. On `SIGUSR1` (or `--toggle`), creates a fullscreen `wlr-layer-shell` surface
-   and queries the compositor: Hyprland's JSON socket or Sway's i3 IPC.
-3. Draws the grid immediately with placeholder rectangles, then captures window
-   thumbnails one at a time through `hyprland-toplevel-export-v1`, repainting as
-   each arrives. Captures have a 500 ms timeout and never block the event loop.
-4. Handles input: keyboard, optional pointer, and live config reloads via
-   inotify.
-5. On confirm/move/close, performs the requested action, tears down the overlay,
-   and (for window focus) waits for the surface to disappear before focusing the
-   target window.
-6. Goes back to sleep until the next toggle.
-
-All compositor requests are sent directly over the existing Unix sockets; no
-`hyprctl`, `swaymsg`, or shell process is spawned.
-
-## Development
-
-The unit tests run without a compositor and cover the pure helpers: config
-parsing, key mapping, filtering, Tab-cycle candidates, icon lookup, and rendering
-metrics.
-
-```
-cargo fmt --all --check
-cargo test --locked
-cargo clippy --all-targets --locked -- -D warnings
-cargo build --release
-```
-
-A [`justfile`](justfile) wraps the common tasks:
-
-```
-just check         # format + lint + test
-just fmt           # apply rustfmt
-just build         # release build
-just release       # tag the Cargo.toml version and push it
-just audit         # cargo-deny advisory check
-just install       # cargo install into ~/.cargo/bin
-just install-hooks # enable the tracked git hooks
-just package       # build the Arch package
-just srcinfo       # regenerate the AUR .SRCINFO
-just site          # preview the project site at http://localhost:8000
-```
-
-The project site is plain HTML/CSS in [`site/`](site/);
-[`.github/workflows/pages.yml`](.github/workflows/pages.yml) deploys it to
-GitHub Pages.
-
-CI runs the same format, clippy, build, test, and advisory-audit checks. To have
-the fast checks run locally before code leaves your machine, enable the tracked
-hooks once per clone:
-
-```
-./install-hooks.sh
-```
-
-`pre-commit` formats staged Rust files; `pre-push` runs the format check and
-clippy.
-
-AUR packaging lives in [`packaging/aur/hyprview-git`](packaging/aur/hyprview-git).
-After editing the `PKGBUILD`, regenerate `.SRCINFO` with:
-
-```
-cd packaging/aur/hyprview-git
-makepkg --printsrcinfo > .SRCINFO
-```
-
-Releases are cut by pushing a `vX.Y.Z` tag that matches `Cargo.toml`;
-[`.github/workflows/release.yml`](.github/workflows/release.yml) validates the
-tag and attaches a stable source tarball to the GitHub release.
+Bug reports and pull requests are welcome. See
+[`CONTRIBUTING.md`](CONTRIBUTING.md) for the short version, and
+[`docs/development.md`](docs/development.md) for architecture notes, build and
+test commands, packaging, and the release process. Release history is in
+[`CHANGELOG.md`](CHANGELOG.md).
 
 ## License
 
 MIT — see [`LICENSE`](LICENSE).
 
-hyprview is a fork of [hyprexpose](https://github.com/ThiagoAVicente/hyprexpose)
-by ThiagoAVicente.
+hyprview began as a fork of
+[hyprexpose](https://github.com/ThiagoAVicente/hyprexpose) by ThiagoAVicente.
+It has since diverged into its own project, adding type-to-filter, Tab cycling,
+app icons and tooltips, window closing, config hot reload, packaged releases,
+and this documentation and site.

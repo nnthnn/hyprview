@@ -13,7 +13,7 @@
 - Ordering is deterministic grid order (workspace order, then `ws.clients` order) — no MRU/`focusHistoryID`, per spec (out of scope).
 - Zero behavior change when Tab is never pressed — every new branch must fall through to unchanged existing logic when `tab_target` is `None`.
 - Follow existing codebase conventions: hand-rolled evdev-keycode key mapping (no `xkbcommon` dependency), `#[cfg(test)]` unit-test modules co-located with the pure functions they cover (see `find_single_window_match`/`workspace_matches` tests at the bottom of `src/main.rs`), config fields documented in `config.example.toml`.
-- Spec: `docs/superpowers/specs/2026-07-05-tab-cycle-windows-design.md`.
+- Spec: `docs/archive/specs/2026-07-05-tab-cycle-windows-design.md`.
 
 ## Implementation Note: Shift Tracking (deviation from spec wording)
 

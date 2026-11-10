@@ -67,7 +67,7 @@ selection = "#6699ffe6"
 label = "#d9d9e6ff"
 
 # "(empty)" text shown in workspaces with no windows.
-empty_label = "#80808094"      # grey, semi-transparent
+empty_label = "#80808ccc"      # grey, semi-transparent
 
 # Window class / title text drawn over thumbnails or placeholder rects.
 window_label = "#ffffffe6"
@@ -88,9 +88,9 @@ hover_overlay = "#ffffff26"
 
 # Hover tooltip colors.
 tooltip_background = "#0f0f1af2"
-tooltip_name       = "#fffff2f2"   # app name (bold)
+tooltip_name       = "#fffffff2"   # app name (bold)
 tooltip_class      = "#b2b2bfcc"   # full class, shown when it differs from the app name
-tooltip_title      = "#d9d9e7e5"   # window title
+tooltip_title      = "#d9d9e6e5"   # window title
 
 # ── Keybindings ───────────────────────────────────────────────────────────────
 # Each action accepts a single key name or an array of key names.

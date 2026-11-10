@@ -2,15 +2,16 @@ name: Release
 
 # Cut a release by pushing a `vX.Y.Z` tag; the workflow does the rest:
 #   1. checks the tag matches Cargo.toml,
-#   2. attaches a stable source tarball (git archive) to the GitHub release.
+#   2. attaches a stable source tarball (git archive) to the GitHub release,
+#   3. builds the x86_64 binary and attaches it with a checksum.
 #
 # Unlike GitHub's auto-generated /archive/ tarballs, a release asset's bytes
 # (and therefore its checksum) do not change, so downstream packagers can pin
 # it safely.
 #
-# There is no AUR publish job: packaging/aur/hyprview-git is a VCS package
-# that builds from `git+https://github.com/nnthnn/hyprview.git`, so it picks up
-# new commits (including tagged ones) without any per-release PKGBUILD update.
+# AUR publishing is not available while Arch restricts new accounts and package
+# pushes. `packaging/aur/hyprview-git` remains a VCS package for local builds,
+# but the release assets are the primary distribution path.
 
 on:
   push:
@@ -74,3 +75,49 @@ jobs:
               --title "v${version}" \
               --generate-notes
           fi
+
+  binary:
+    name: Build x86_64 binary
+    needs: source
+    # Pin an older runner so the dynamically linked binary keeps a reasonably
+    # old glibc baseline; ubuntu-latest moves forward over time.
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@1.99.1
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwayland-dev libpango1.0-dev pkg-config
+
+      - name: Build release binary
+        run: cargo build --release --locked
+
+      - name: Package binary
+        run: |
+          set -euo pipefail
+          version="${{ needs.source.outputs.version }}"
+          asset="hyprview-x86_64-unknown-linux-gnu"
+          rm -rf dist
+          mkdir -p dist/hyprview/docs
+          cp target/release/hyprview README.md LICENSE config.example.toml dist/hyprview/
+          cp docs/configuration.md docs/development.md dist/hyprview/docs/
+          tar -C dist -czf "dist/${asset}.tar.gz" hyprview
+          (cd dist && sha256sum "${asset}.tar.gz" > "${asset}.tar.gz.sha256")
+          echo "Built ${asset}.tar.gz for hyprview ${version}"
+
+      - name: Upload binary assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          version="${{ needs.source.outputs.version }}"
+          asset="hyprview-x86_64-unknown-linux-gnu"
+          gh release upload "v${version}" \
+            "dist/${asset}.tar.gz" \
+            "dist/${asset}.tar.gz.sha256" \
+            --clobber

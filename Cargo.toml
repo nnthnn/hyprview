@@ -2,6 +2,25 @@
 name = "hyprview"
 version = "0.1.0"
 edition = "2021"
+description = "A fast, keyboard-driven workspace overview for Hyprland and Sway"
+license = "MIT"
+repository = "https://github.com/nnthnn/hyprview"
+homepage = "https://nnthnn.github.io/hyprview/"
+readme = "README.md"
+keywords = ["hyprland", "sway", "wayland", "workspace", "overview"]
+categories = ["gui"]
+include = [
+    "src/**",
+    "protocols/**",
+    "build.rs",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "config.example.toml",
+    "docs/configuration.md",
+    "docs/development.md",
+]
 
 [[bin]]
 name = "hyprview"
