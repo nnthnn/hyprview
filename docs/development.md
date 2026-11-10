@@ -61,7 +61,7 @@ A [`justfile`](../justfile) wraps the common tasks:
 just check         # format + lint + test
 just fmt           # apply rustfmt
 just build         # release build
-just release       # tag the Cargo.toml version and push it
+just release 0.2.0 # bump the version, commit it, and push the release tag
 just audit         # cargo-deny advisory check
 just install       # cargo install into ~/.cargo/bin
 just install-hooks # enable the tracked git hooks
@@ -104,7 +104,8 @@ makepkg --printsrcinfo > .SRCINFO
 ## Releases
 
 Releases are cut by pushing a `vX.Y.Z` tag that matches `Cargo.toml` (or by
-running `just release` from `main`).
+running `just release X.Y.Z` from `main`, which bumps `Cargo.toml` and
+`Cargo.lock`, commits the bump, and pushes the tag).
 [`.github/workflows/release.yml`](../.github/workflows/release.yml) validates
 the tag, attaches a stable source tarball, and builds an x86_64 binary with a
 sha256 checksum. The release assets are the primary distribution path while

@@ -46,6 +46,7 @@ A [`justfile`](justfile) wraps these, the hooks, and the packaging tasks:
 just check    # fmt-check + clippy + test
 just fmt      # apply rustfmt
 just build    # release build
+just release 0.2.0 # bump the version, commit, tag, and push
 just audit    # cargo-deny advisory check
 just install  # cargo install into ~/.cargo/bin
 just install-hooks # enable the tracked git hooks

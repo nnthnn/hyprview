@@ -27,13 +27,20 @@ test:
 build:
 	cargo build --release --locked
 
-# Tag the Cargo.toml version and push it to trigger the release workflow.
-release: check
+# Cut a release: bump to X.Y.Z if given, commit, tag, and push.
+[positional-arguments]
+release version="": check
 	#!/usr/bin/env bash
 	set -euo pipefail
-	version="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1)"
-	if [ -z "$version" ]; then
+	requested="${1:-}"
+	current="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1)"
+	if [ -z "$current" ]; then
 		echo "error: could not read version from Cargo.toml" >&2
+		exit 1
+	fi
+	version="${requested:-$current}"
+	if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$ ]]; then
+		echo "error: '${version}' is not a valid X.Y.Z version" >&2
 		exit 1
 	fi
 	if [ -n "$(git status --porcelain)" ]; then
@@ -49,9 +56,16 @@ release: check
 		echo "error: tag v${version} already exists" >&2
 		exit 1
 	fi
+	if [ "$version" != "$current" ]; then
+		echo "Bumping ${current} -> ${version}"
+		sed -i "0,/^version = \".*\"/s//version = \"${version}\"/" Cargo.toml
+		cargo update -p hyprview --offline
+		git add Cargo.toml Cargo.lock
+		git commit -m "Release v${version}"
+	fi
 	echo "Tagging v${version}"
 	git tag -a "v${version}" -m "v${version}"
-	git push origin "v${version}"
+	git push origin "$branch" "v${version}"
 
 # Preview the project site locally at http://localhost:8000.
 site:
