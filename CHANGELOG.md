@@ -21,6 +21,14 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Install docs now lead with GitHub releases and Cargo; AUR publishing is paused
   while Arch restricts new accounts and package pushes.
 
+### Fixed
+
+- The release binary job now installs the pinned Rust toolchain and builds on
+  Ubuntu 22.04 for a wider glibc baseline.
+- Documented color defaults now match the values compiled into the binary.
+- Replaced an invalid crates.io category and corrected the development guide's
+  description of when the overlay closes.
+
 ## [0.1.0] - 2026-11-09
 
 ### Added

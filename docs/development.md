@@ -19,9 +19,9 @@ spawned.
    each arrives. Captures have a 500 ms timeout and never block the event loop.
 4. Handles input: keyboard, optional pointer, and live config reloads via
    inotify.
-5. On confirm/move/close, performs the requested action, tears down the overlay,
+5. On confirm or move, performs the requested action, tears down the overlay,
    and (for window focus) waits for the surface to disappear before focusing the
-   target window.
+   target window. Closing a window leaves the overlay open.
 6. Goes back to sleep until the next toggle.
 
 The Wayland event loop, state, and input handling live in `src/main.rs`.

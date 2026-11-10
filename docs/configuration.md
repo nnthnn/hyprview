@@ -46,16 +46,16 @@ Colors accept `"#rrggbb"`, `"#rrggbbaa"`, or `[r, g, b, a]` with values in
 | `card` | `"#1f1f26f2"` | Workspace card background |
 | `selection` | `"#6699ffe6"` | Selected card border |
 | `label` | `"#d9d9e6ff"` | Workspace label text |
-| `empty_label` | `"#80808094"` | `(empty)` text in empty cards |
+| `empty_label` | `"#80808ccc"` | `(empty)` text in empty cards |
 | `window_label` | `"#ffffffe6"` | Window class/title text |
 | `active_window` | `"#ffbf33f2"` | Border around the active window (the one `m` moves) |
 | `window_border` | `"#ffffff26"` | Subtle border around every thumbnail |
 | `hover_border` | `"#ffffff99"` | Border around the hovered thumbnail |
 | `hover_overlay` | `"#ffffff26"` | Brightness tint over the hovered thumbnail |
 | `tooltip_background` | `"#0f0f1af2"` | Tooltip background |
-| `tooltip_name` | `"#fffff2f2"` | Tooltip app name |
+| `tooltip_name` | `"#fffffff2"` | Tooltip app name |
 | `tooltip_class` | `"#b2b2bfcc"` | Tooltip window class |
-| `tooltip_title` | `"#d9d9e7e5"` | Tooltip window title |
+| `tooltip_title` | `"#d9d9e6e5"` | Tooltip window title |
 
 ## `[behavior]`
 
