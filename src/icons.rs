@@ -220,7 +220,9 @@ fn resolve_icon(candidates: &[String], theme: &str, size: u32) -> Option<ImageSu
 
 pub struct IconCache {
     theme: String,
-    cache: HashMap<String, Option<ImageSurface>>,
+    /// Keyed by `(class_name, size)` because the configured icon size can
+    /// change on config reload and a stale raster must not be reused.
+    cache: HashMap<(String, u32), Option<ImageSurface>>,
 }
 
 impl IconCache {
@@ -231,10 +233,20 @@ impl IconCache {
         }
     }
 
+    /// Re-detect the icon theme, clearing cached rasters when it changed.
+    pub fn refresh(&mut self) {
+        let theme = detect_icon_theme();
+        if theme != self.theme {
+            self.theme = theme;
+            self.cache.clear();
+        }
+    }
+
     /// Returns the cached icon surface for `class_name` at `size` px,
     /// looking it up (and caching the result, including misses) on first access.
     pub fn get(&mut self, class_name: &str, size: u32) -> Option<ImageSurface> {
-        if let Some(cached) = self.cache.get(class_name) {
+        let key = (class_name.to_string(), size);
+        if let Some(cached) = self.cache.get(&key) {
             return cached.clone();
         }
         let mut candidates = icon_name_candidates(class_name);
@@ -247,7 +259,7 @@ impl IconCache {
             }
         }
         let surface = resolve_icon(&candidates, &self.theme, size);
-        self.cache.insert(class_name.to_string(), surface.clone());
+        self.cache.insert(key, surface.clone());
         surface
     }
 }

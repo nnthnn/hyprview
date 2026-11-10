@@ -36,14 +36,24 @@ impl<'de> Deserialize<'de> for HexColor {
 
 fn parse_hex(s: &str) -> Option<(f64, f64, f64, f64)> {
     let s = s.trim_start_matches('#');
-    if s.len() < 6 {
+    let bytes = s.as_bytes();
+    // Only #rrggbb and #rrggbbaa are valid. Checking the byte length first and
+    // parsing from byte slices keeps this safe for multi-byte input instead of
+    // panicking on a non-char-boundary slice.
+    if bytes.len() != 6 && bytes.len() != 8 {
         return None;
     }
-    let r = u8::from_str_radix(&s[0..2], 16).ok()? as f64 / 255.0;
-    let g = u8::from_str_radix(&s[2..4], 16).ok()? as f64 / 255.0;
-    let b = u8::from_str_radix(&s[4..6], 16).ok()? as f64 / 255.0;
-    let a = if s.len() >= 8 {
-        u8::from_str_radix(&s[6..8], 16).ok()? as f64 / 255.0
+    let channel = |range: std::ops::Range<usize>| -> Option<f64> {
+        std::str::from_utf8(&bytes[range])
+            .ok()
+            .and_then(|hex| u8::from_str_radix(hex, 16).ok())
+            .map(|v| v as f64 / 255.0)
+    };
+    let r = channel(0..2)?;
+    let g = channel(2..4)?;
+    let b = channel(4..6)?;
+    let a = if bytes.len() == 8 {
+        channel(6..8)?
     } else {
         1.0
     };
@@ -492,5 +502,29 @@ mod tests {
     fn tab_keybinding_defaults_to_tab_key() {
         let cfg = KeybindingsConfig::default();
         assert_eq!(cfg.tab, vec!["Tab".to_string()]);
+    }
+
+    #[test]
+    fn parse_hex_accepts_six_and_eight_digit_forms() {
+        assert_eq!(parse_hex("#ff8000"), Some((1.0, 128.0 / 255.0, 0.0, 1.0)));
+        assert_eq!(
+            parse_hex("ff800080"),
+            Some((1.0, 128.0 / 255.0, 0.0, 128.0 / 255.0))
+        );
+    }
+
+    #[test]
+    fn parse_hex_rejects_malformed_lengths() {
+        for value in ["", "#f", "#ff8", "#ff800", "#ff80000", "#ff8000000"] {
+            assert_eq!(parse_hex(value), None, "{value:?} should be rejected");
+        }
+    }
+
+    #[test]
+    fn parse_hex_rejects_invalid_and_non_ascii_input_without_panicking() {
+        assert_eq!(parse_hex("#gg0000"), None);
+        // Six bytes but only three characters: byte-slicing this used to panic
+        // on a non-char-boundary.
+        assert_eq!(parse_hex("ééé"), None);
     }
 }

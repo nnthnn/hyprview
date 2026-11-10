@@ -20,6 +20,8 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Archived historical design notes under [`docs/archive/`](docs/archive/).
 - Install docs now lead with GitHub releases and Cargo; AUR publishing is paused
   while Arch restricts new accounts and package pushes.
+- Thumbnail pixels are decoded to Cairo surfaces once per capture and reused on
+  every redraw instead of being cloned and rebound each frame.
 
 ### Fixed
 
@@ -28,6 +30,20 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Documented color defaults now match the values compiled into the binary.
 - Replaced an invalid crates.io category and corrected the development guide's
   description of when the overlay closes.
+- Empty workspaces no longer shift the selection highlight or pointer
+  hit-testing when `show_empty_workspaces` is off.
+- Clearing a filter keeps the current card, out-of-range number keys are
+  ignored, navigation always cancels the Tab highlight, and Tab targets filtered
+  out of view are no longer focused.
+- Hiding the overlay resets hover, pointer, and Shift state so the next show
+  cannot render a stale tooltip or reverse the first Tab.
+- `no_preview` and `allow_mouse` now take effect on config reload.
+- Sway IPC replies time out instead of blocking the event loop, frame copies
+  handle short writes, and the Hyprland JSON parser decodes escaped quotes.
+- The instance lock refuses symlinks and non-regular files and is created with
+  mode `0600`.
+- Malformed or non-ASCII hex colors are rejected instead of risking a panic.
+- Cached app icons are keyed by size and refreshed when the icon theme changes.
 
 ## [0.1.0] - 2026-11-09
 
