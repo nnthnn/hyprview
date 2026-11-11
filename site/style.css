@@ -18,6 +18,17 @@
   --max: 1160px;
   --font: Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
   --mono: "JetBrains Mono", "SFMono-Regular", ui-monospace, monospace;
+  --tok-key: #8fa8ff;
+  --tok-string: #76e0b6;
+  --tok-number: #ffca85;
+  --tok-boolean: #c5a3ff;
+  --tok-section: #d6a4ff;
+  --tok-builtin: #b18cff;
+  --tok-function: #8fd4ff;
+  --tok-keyword: #ff9ecb;
+  --tok-punct: #7d84a3;
+  --tok-command: #8fd4ff;
+  --tok-flag: #ffca85;
 }
 
 * {
@@ -482,6 +493,51 @@ pre {
 pre code {
   color: #dbe3ff;
   font-size: 0.83rem;
+}
+
+.tok-key {
+  color: var(--tok-key);
+}
+
+.tok-string {
+  color: var(--tok-string);
+}
+
+.tok-number {
+  color: var(--tok-number);
+}
+
+.tok-boolean {
+  color: var(--tok-boolean);
+}
+
+.tok-section {
+  color: var(--tok-section);
+  font-weight: 650;
+}
+
+.tok-builtin {
+  color: var(--tok-builtin);
+}
+
+.tok-function {
+  color: var(--tok-function);
+}
+
+.tok-keyword {
+  color: var(--tok-keyword);
+}
+
+.tok-punct {
+  color: var(--tok-punct);
+}
+
+.tok-command {
+  color: var(--tok-command);
+}
+
+.tok-flag {
+  color: var(--tok-flag);
 }
 
 .install-note {
