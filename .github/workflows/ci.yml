@@ -17,6 +17,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The runner image's mirror list points at Canonical/Azure hosts, whose
+      # DNS has been failing for GitHub-hosted runners. Use a public mirror so
+      # dependency installation does not depend on that resolver.
+      - name: Use reachable Ubuntu mirror
+        run: echo "https://mirrors.edge.kernel.org/ubuntu/" | sudo tee /etc/apt/apt-mirrors.txt
+
       # cairo/pango are pkg-config'd by their -sys crates, and wayland-scanner
       # comes from libwayland-dev.
       - name: Install system dependencies
@@ -45,6 +51,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Use reachable Ubuntu mirror
+        run: echo "https://mirrors.edge.kernel.org/ubuntu/" | sudo tee /etc/apt/apt-mirrors.txt
 
       - name: Install system dependencies
         run: |
