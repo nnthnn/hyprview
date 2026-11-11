@@ -140,20 +140,20 @@
         <article class="panel">
           <h3>Prebuilt binary</h3>
           <p>Requires the Wayland, Cairo, and Pango runtime libraries.</p>
-          <pre><code>curl -LO https://github.com/nnthnn/hyprview/releases/latest/download/hyprview-x86_64-unknown-linux-gnu.tar.gz
-curl -LO https://github.com/nnthnn/hyprview/releases/latest/download/hyprview-x86_64-unknown-linux-gnu.tar.gz.sha256
-sha256sum -c hyprview-x86_64-unknown-linux-gnu.tar.gz.sha256
-tar xzf hyprview-x86_64-unknown-linux-gnu.tar.gz
-sudo install -Dm755 hyprview/hyprview /usr/local/bin/hyprview</code></pre>
+          <pre><code><span class="tok-command">curl</span> <span class="tok-flag">-LO</span> <span class="tok-string">https://github.com/nnthnn/hyprview/releases/latest/download/hyprview-x86_64-unknown-linux-gnu.tar.gz</span>
+<span class="tok-command">curl</span> <span class="tok-flag">-LO</span> <span class="tok-string">https://github.com/nnthnn/hyprview/releases/latest/download/hyprview-x86_64-unknown-linux-gnu.tar.gz.sha256</span>
+<span class="tok-command">sha256sum</span> <span class="tok-flag">-c</span> hyprview-x86_64-unknown-linux-gnu.tar.gz.sha256
+<span class="tok-command">tar</span> <span class="tok-flag">xzf</span> hyprview-x86_64-unknown-linux-gnu.tar.gz
+<span class="tok-keyword">sudo</span> <span class="tok-command">install</span> <span class="tok-flag">-Dm755</span> hyprview/hyprview /usr/local/bin/hyprview</code></pre>
         </article>
         <article class="panel">
           <h3>From source</h3>
           <p>You need a Rust toolchain, <code>pkg-config</code>, and the Wayland, Cairo, and Pango development headers.</p>
-          <pre><code>git clone https://github.com/nnthnn/hyprview.git
-cd hyprview
-cargo build --release
+          <pre><code><span class="tok-command">git</span> <span class="tok-function">clone</span> <span class="tok-string">https://github.com/nnthnn/hyprview.git</span>
+<span class="tok-command">cd</span> hyprview
+<span class="tok-command">cargo</span> <span class="tok-function">build</span> <span class="tok-flag">--release</span>
 
-sudo install -Dm755 target/release/hyprview \
+<span class="tok-keyword">sudo</span> <span class="tok-command">install</span> <span class="tok-flag">-Dm755</span> target/release/hyprview <span class="tok-punct">\</span>
   /usr/local/bin/hyprview</code></pre>
         </article>
       </div>
@@ -185,25 +185,25 @@ sudo install -Dm755 target/release/hyprview \
       <div class="split-code">
         <div class="code-window">
           <div class="code-title">Hyprland 0.55+ · hyprland.lua</div>
-          <pre><code>hl.on("hyprland.start", function()
-    hl.exec_cmd("hyprview")
-end)
+          <pre><code><span class="tok-builtin">hl</span><span class="tok-punct">.</span><span class="tok-function">on</span><span class="tok-punct">(</span><span class="tok-string">"hyprland.start"</span><span class="tok-punct">,</span> <span class="tok-keyword">function</span><span class="tok-punct">()</span>
+    <span class="tok-builtin">hl</span><span class="tok-punct">.</span><span class="tok-function">exec_cmd</span><span class="tok-punct">(</span><span class="tok-string">"hyprview"</span><span class="tok-punct">)</span>
+<span class="tok-keyword">end</span><span class="tok-punct">)</span>
 
-hl.bind("SUPER + Tab", hl.dsp.exec_cmd("hyprview --toggle"))</code></pre>
+<span class="tok-builtin">hl</span><span class="tok-punct">.</span><span class="tok-function">bind</span><span class="tok-punct">(</span><span class="tok-string">"SUPER + Tab"</span><span class="tok-punct">,</span> <span class="tok-builtin">hl</span><span class="tok-punct">.</span><span class="tok-function">dsp</span><span class="tok-punct">.</span><span class="tok-function">exec_cmd</span><span class="tok-punct">(</span><span class="tok-string">"hyprview --toggle"</span><span class="tok-punct">))</span></code></pre>
         </div>
         <div class="code-window">
           <div class="code-title">~/.config/hyprview/config.toml</div>
-          <pre><code>[appearance]
-show_app_icons = true
-icon_size = 20.0
+          <pre><code><span class="tok-section">[appearance]</span>
+<span class="tok-key">show_app_icons</span> <span class="tok-punct">=</span> <span class="tok-boolean">true</span>
+<span class="tok-key">icon_size</span> <span class="tok-punct">=</span> <span class="tok-number">20.0</span>
 
-[behavior]
-allow_mouse = false
-switch_on_move = true
+<span class="tok-section">[behavior]</span>
+<span class="tok-key">allow_mouse</span> <span class="tok-punct">=</span> <span class="tok-boolean">false</span>
+<span class="tok-key">switch_on_move</span> <span class="tok-punct">=</span> <span class="tok-boolean">true</span>
 
-[keybindings]
-move_window = "m"
-tab = "Tab"</code></pre>
+<span class="tok-section">[keybindings]</span>
+<span class="tok-key">move_window</span> <span class="tok-punct">=</span> <span class="tok-string">"m"</span>
+<span class="tok-key">tab</span> <span class="tok-punct">=</span> <span class="tok-string">"Tab"</span></code></pre>
         </div>
       </div>
     </section>
