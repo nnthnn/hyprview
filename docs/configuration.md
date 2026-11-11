@@ -31,6 +31,7 @@ same options with inline comments.
 | `thumb_padding` | `8.0` | Padding between the card edge and window area (px) |
 | `select_border` | `3.0` | Selection highlight border width (px) |
 | `window_gap` | `4.0` | Gap between adjacent window thumbnails (px) |
+| `wrap_windows` | `true` | Reflow windows into a wrapping grid per card instead of reproducing their geometry |
 | `columns` | `0` | Fixed number of grid columns; `0` = auto (square root of workspace count) |
 | `show_app_icons` | `true` | Draw app icons on thumbnails and tooltips |
 | `icon_size` | `20.0` | App icon size (px), clamped to 8–256 |

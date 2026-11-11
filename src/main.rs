@@ -1,6 +1,7 @@
 mod config;
 mod icons;
 mod ipc;
+mod layout;
 mod render;
 
 use config::Config;
@@ -815,38 +816,26 @@ impl AppState {
             if x < cx || x > cx + card_w || y < cy || y > cy + card_h {
                 continue;
             }
-            // Empty cards have no windows to hit-test. The min/max fold below
-            // would overflow on an empty client list.
+            // Empty cards have no windows to hit-test.
             if ws.clients.is_empty() {
                 return None;
             }
-            // Inside this card — hit-test individual windows
-            let win_x = cx + tp;
-            let win_y = cy + lh;
-            let win_w = card_w - 2.0 * tp;
-            let win_h = card_h - lh - tp;
-            let (min_x, min_y, max_x, max_y) = ws.clients.iter().fold(
-                (i32::MAX, i32::MAX, i32::MIN, i32::MIN),
-                |(mix, miy, mxx, mxy), c| {
-                    (
-                        mix.min(c.x),
-                        miy.min(c.y),
-                        mxx.max(c.x + c.w),
-                        mxy.max(c.y + c.h),
-                    )
-                },
+            // Inside this card — hit-test individual windows with the same
+            // rectangles the renderer draws.
+            let win_area = layout::Rect {
+                x: cx + tp,
+                y: cy + lh,
+                w: card_w - 2.0 * tp,
+                h: card_h - lh - tp,
+            };
+            let rects = layout::window_rects(
+                &ws.clients,
+                win_area,
+                self.config.appearance.window_gap,
+                self.config.appearance.wrap_windows,
             );
-            let ws_w = (max_x - min_x).max(1) as f64;
-            let ws_h = (max_y - min_y).max(1) as f64;
-            let scale = (win_w / ws_w).min(win_h / ws_h) * 0.9;
-            let off_x = win_x + (win_w - ws_w * scale) / 2.0;
-            let off_y = win_y + (win_h - ws_h * scale) / 2.0;
-            for client in &ws.clients {
-                let rx = off_x + (client.x - min_x) as f64 * scale;
-                let ry = off_y + (client.y - min_y) as f64 * scale;
-                let rw = client.w as f64 * scale;
-                let rh = client.h as f64 * scale;
-                if x >= rx && x <= rx + rw && y >= ry && y <= ry + rh {
+            for (client, rect) in ws.clients.iter().zip(rects) {
+                if rect.contains(x, y) {
                     return Some(client.address);
                 }
             }
@@ -2226,6 +2215,53 @@ mod tests {
         st.height = 800;
 
         assert_eq!(st.window_at(500.0, 400.0), None);
+    }
+
+    #[test]
+    fn window_at_hits_the_wrapped_layout_the_renderer_draws() {
+        let clients: Vec<ClientInfo> = (0..4)
+            .map(|i| {
+                let mut c = client(i + 1, "foot", "term");
+                c.x = (i % 2) as i32 * 800;
+                c.y = (i / 2) as i32 * 600;
+                c.w = 800;
+                c.h = 600;
+                c
+            })
+            .collect();
+        let mut st = test_state(false);
+        st.workspaces = vec![workspace("1", clients.clone())];
+        st.width = 1000;
+        st.height = 800;
+
+        // Mirror the card geometry used by `window_at` and `render::draw`.
+        let pad = st.config.appearance.card_padding;
+        let cols = st.grid_cols(1);
+        let rows = 1;
+        let card_w = ((st.width as f64 - pad * (cols + 1) as f64) / cols as f64)
+            .min(st.config.appearance.max_card_width);
+        let card_h = ((st.height as f64 - pad * (rows + 1) as f64) / rows as f64)
+            .min(st.config.appearance.max_card_height);
+        let area = layout::Rect {
+            x: (st.width as f64 - card_w) / 2.0 + st.config.appearance.thumb_padding,
+            y: (st.height as f64 - card_h) / 2.0 + st.config.appearance.label_height,
+            w: card_w - 2.0 * st.config.appearance.thumb_padding,
+            h: card_h - st.config.appearance.label_height - st.config.appearance.thumb_padding,
+        };
+        let rects = layout::window_rects(
+            &clients,
+            area,
+            st.config.appearance.window_gap,
+            st.config.appearance.wrap_windows,
+        );
+
+        // The third window wraps onto the second row; clicking its center must
+        // select it rather than falling through to the card background.
+        let target = rects[2];
+        assert_eq!(
+            st.window_at(target.x + target.w / 2.0, target.y + target.h / 2.0),
+            Some(clients[2].address)
+        );
     }
 
     // ── keyboard state transitions ───────────────────────────────────────────
