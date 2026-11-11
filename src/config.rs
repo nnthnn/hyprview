@@ -85,6 +85,9 @@ pub struct AppearanceConfig {
     pub select_border: f64,
     /// Gap between adjacent window thumbnails within a card (px).
     pub window_gap: f64,
+    /// Reflow windows into a wrapping grid inside each card instead of
+    /// reproducing the compositor's window geometry.
+    pub wrap_windows: bool,
     /// Fixed number of columns in the workspace grid. 0 = auto (sqrt of workspace count).
     pub columns: usize,
     /// Base font family used for the hover tooltip (size suffixes are appended automatically).
@@ -108,6 +111,7 @@ impl Default for AppearanceConfig {
             thumb_padding: 8.0,
             select_border: 3.0,
             window_gap: 4.0,
+            wrap_windows: true,
             columns: 0,
             tooltip_font: "Sans".into(),
             show_app_icons: true,
@@ -366,6 +370,7 @@ impl Config {
                     "thumb_padding",
                     "select_border",
                     "window_gap",
+                    "wrap_windows",
                     "columns",
                     "show_app_icons",
                     "icon_size",
@@ -485,6 +490,17 @@ mod tests {
         let cfg = AppearanceConfig::default();
         assert!(cfg.show_app_icons);
         assert_eq!(cfg.icon_size, 20.0);
+    }
+
+    #[test]
+    fn appearance_defaults_to_wrapping_windows() {
+        assert!(AppearanceConfig::default().wrap_windows);
+    }
+
+    #[test]
+    fn appearance_parses_wrap_windows_override() {
+        let cfg: AppearanceConfig = toml::from_str("wrap_windows = false").unwrap();
+        assert!(!cfg.wrap_windows);
     }
 
     #[test]

@@ -28,8 +28,9 @@ snippets in the README in Lua syntax.
 The binary is a single crate with no library target. `src/main.rs` owns the
 Wayland client, event loop, state, input handling, and thumbnail capture;
 `src/ipc.rs` dispatches to `src/ipc/hyprland.rs` / `src/ipc/sway.rs`;
-`src/render.rs` draws with Cairo/Pango; `src/icons.rs` resolves and caches app
-icons; `src/config.rs` owns TOML parsing and defaults.
+`src/layout.rs` places windows inside each card; `src/render.rs` draws with
+Cairo/Pango; `src/icons.rs` resolves and caches app icons; `src/config.rs` owns
+TOML parsing and defaults.
 
 ## Commands
 
@@ -50,6 +51,7 @@ just release 0.2.0 # bump the version, commit, tag, and push
 just audit    # cargo-deny advisory check
 just install  # cargo install into ~/.cargo/bin
 just install-hooks # enable the tracked git hooks
+just try-wrap # live overlay test harness; needs Hyprland/Sway (see below)
 just package  # build the tracked Arch package
 just srcinfo  # regenerate the AUR .SRCINFO
 just site     # preview the project site at http://localhost:8000
@@ -141,6 +143,11 @@ usually produces hangs, leaked buffers, or a dead overlay.
 - **Sway must degrade gracefully.** `--no-preview` and a missing
   `hyprland-toplevel-export` global both fall back to coloured rectangles; do
   not make thumbnails mandatory for rendering or startup.
+- **Window placement is shared.** `layout::window_rects` is the single source
+  of thumbnail rectangles: `render.rs` draws them and `main.rs` hit-tests them.
+  Changing one without the other makes clicks target the wrong window. The
+  default `wrap_windows` mode reflows clients in reading order; the geometry
+  fallback must stay usable when `wrap_windows = false`.
 - **Rendering is Cairo ARgb32.** Thumbnail pixel data from `tiny-skia` is RGBA;
   `icons::premultiplied_rgba_to_cairo_argb` swaps R/B before handing it to
   Cairo. Keep premultiplied alpha intact.

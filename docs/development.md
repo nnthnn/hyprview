@@ -26,8 +26,10 @@ spawned.
 
 The Wayland event loop, state, and input handling live in `src/main.rs`.
 `src/ipc.rs` dispatches compositor-specific behaviour to `src/ipc/hyprland.rs`
-and `src/ipc/sway.rs`; `src/render.rs` draws with Cairo/Pango; `src/icons.rs`
-resolves and caches app icons; `src/config.rs` owns TOML parsing and defaults.
+and `src/ipc/sway.rs`; `src/layout.rs` places windows inside each card (shared
+by rendering and hit-testing); `src/render.rs` draws with Cairo/Pango;
+`src/icons.rs` resolves and caches app icons; `src/config.rs` owns TOML parsing
+and defaults.
 
 See [`AGENTS.md`](../AGENTS.md) for the invariants that keep the event loop and
 thumbnail pipeline safe to change. Historical design notes live in
@@ -54,6 +56,21 @@ cargo test --locked
 cargo clippy --all-targets --locked -- -D warnings
 cargo build --release
 ```
+
+Changes that affect the overlay itself need a live compositor pass. The
+`try-wrap` helper builds the worktree binary, starts it against an isolated
+config, and opens a scratch workspace with test windows:
+
+```sh
+just try-wrap              # wrap layout, 5 test windows, overlay open
+just try-wrap geometry     # compare the old geometry-preserving layout
+just try-wrap wrap         # switch back
+just try-wrap toggle       # open/close the overlay
+just try-wrap clean        # stop the test daemon and remove the temp config
+```
+
+It requires Hyprland or Sway and stops any installed hyprview daemon because
+only one instance can hold the session lock.
 
 A [`justfile`](../justfile) wraps the common tasks:
 

@@ -28,7 +28,7 @@ opt in, the mouse.
 ## Features
 
 - **Live window thumbnails** via `hyprland-toplevel-export-v1` (Hyprland only)
-- **Workspace grid** with named/numbered labels and real window layout per card
+- **Workspace grid** with named/numbered labels and windows that wrap to fill each card
 - **Keyboard-first navigation** with arrows or `hjkl`, plus `1`–`9` for direct card jumps
 - **Tab / Shift+Tab window cycling** across all workspaces, starting from the focused window
 - **Type-to-filter** across workspace names, window classes, and titles, with non-matches dimmed

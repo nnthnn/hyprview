@@ -36,6 +36,10 @@ thumb_padding = 8.0
 select_border = 3.0
 window_gap    = 4.0    # gap between adjacent window thumbnails (px); border sits in this space
 
+# Reflow each workspace's windows into a wrapping grid that fills the card.
+# Set to false to reproduce the compositor's actual window geometry instead.
+wrap_windows = true
+
 # Fixed number of columns in the workspace grid.
 # 0 = auto (square root of the workspace count).
 columns = 0

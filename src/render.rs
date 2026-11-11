@@ -1,5 +1,6 @@
 use crate::config::Config;
 use crate::ipc::{ClientInfo, WorkspaceInfo};
+use crate::layout::{self, Rect};
 use cairo::{Context, Format, ImageSurface};
 
 pub struct Thumbnail {
@@ -71,11 +72,7 @@ fn draw_client(
     cr: &Context,
     cfg: &Config,
     client: &ClientInfo,
-    min_x: i32,
-    min_y: i32,
-    scale: f64,
-    off_x: f64,
-    off_y: f64,
+    rect: Rect,
     thumbnails: &[Thumbnail],
     active_window_address: u64,
     hovered_window: Option<u64>,
@@ -85,12 +82,12 @@ fn draw_client(
     window_font: &pango::FontDescription,
     icon_cache: &mut crate::icons::IconCache,
 ) {
-    // Inset each thumbnail by half the gap so adjacent windows have a full gap between them
-    let g = cfg.appearance.window_gap / 2.0;
-    let rx = off_x + (client.x - min_x) as f64 * scale + g;
-    let ry = off_y + (client.y - min_y) as f64 * scale + g;
-    let rw = (client.w as f64 * scale - g * 2.0).max(1.0);
-    let rh = (client.h as f64 * scale - g * 2.0).max(1.0);
+    let Rect {
+        x: rx,
+        y: ry,
+        w: rw,
+        h: rh,
+    } = rect;
 
     // Window thumbnail or fallback colored rect
     if let Some(thumb) = find_thumb(thumbnails, client.address) {
@@ -398,36 +395,25 @@ pub fn draw(p: DrawParams<'_>) -> Vec<u8> {
             continue;
         }
 
-        // Scale all client rects to fit the window area
-        let (min_x, min_y, max_x, max_y) = ws.clients.iter().fold(
-            (i32::MAX, i32::MAX, i32::MIN, i32::MIN),
-            |(mix, miy, mxx, mxy), c| {
-                (
-                    mix.min(c.x),
-                    miy.min(c.y),
-                    mxx.max(c.x + c.w),
-                    mxy.max(c.y + c.h),
-                )
-            },
+        let win_area = Rect {
+            x: win_x,
+            y: win_y,
+            w: win_w,
+            h: win_h,
+        };
+        let rects = layout::window_rects(
+            &ws.clients,
+            win_area,
+            cfg.appearance.window_gap,
+            cfg.appearance.wrap_windows,
         );
 
-        let ws_w = (max_x - min_x).max(1) as f64;
-        let ws_h = (max_y - min_y).max(1) as f64;
-        let scale = (win_w / ws_w).min(win_h / ws_h) * 0.9;
-
-        let off_x = win_x + (win_w - ws_w * scale) / 2.0;
-        let off_y = win_y + (win_h - ws_h * scale) / 2.0;
-
-        for client in &ws.clients {
+        for (client, rect) in ws.clients.iter().zip(rects) {
             draw_client(
                 &cr,
                 cfg,
                 client,
-                min_x,
-                min_y,
-                scale,
-                off_x,
-                off_y,
+                rect,
                 thumbnails,
                 active_window_address,
                 hovered_window,

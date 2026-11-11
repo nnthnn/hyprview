@@ -27,6 +27,10 @@ test:
 build:
 	cargo build --release --locked
 
+# Try the wrapping window layout in a live Hyprland/Sway session.
+try-wrap *args:
+	./scripts/try-wrap.sh {{args}}
+
 # Cut a release: bump the version, commit, tag, and push (triggers release.yml).
 [positional-arguments]
 release version:
