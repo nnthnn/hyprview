@@ -95,6 +95,10 @@ jobs:
           sudo apt-get install -y libwayland-dev libpango1.0-dev pkg-config
 
       - name: Build release binary
+        env:
+          # Shallow tag checkouts can hide tag refs from `git tag`; force the
+          # release version line to omit the commit id.
+          HYPRVIEW_RELEASE: "1"
         run: cargo build --release --locked
 
       - name: Package binary

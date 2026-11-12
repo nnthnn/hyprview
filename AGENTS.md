@@ -30,7 +30,8 @@ Wayland client, event loop, state, input handling, and thumbnail capture;
 `src/ipc.rs` dispatches to `src/ipc/hyprland.rs` / `src/ipc/sway.rs`;
 `src/layout.rs` places windows inside each card; `src/render.rs` draws with
 Cairo/Pango; `src/icons.rs` resolves and caches app icons; `src/config.rs` owns
-TOML parsing and defaults.
+TOML parsing and defaults; `src/cli.rs` parses flags and owns the terminal
+colour palette.
 
 ## Commands
 

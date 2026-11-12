@@ -29,7 +29,7 @@ The Wayland event loop, state, and input handling live in `src/main.rs`.
 and `src/ipc/sway.rs`; `src/layout.rs` places windows inside each card (shared
 by rendering and hit-testing); `src/render.rs` draws with Cairo/Pango;
 `src/icons.rs` resolves and caches app icons; `src/config.rs` owns TOML parsing
-and defaults.
+and defaults; `src/cli.rs` parses flags and owns the terminal colour palette.
 
 See [`AGENTS.md`](../AGENTS.md) for the invariants that keep the event loop and
 thumbnail pipeline safe to change. Historical design notes live in
@@ -43,6 +43,10 @@ release binary is built with:
 ```sh
 cargo build --release
 ```
+
+Builds outside the matching `vX.Y.Z` tag embed the short commit id in
+`--version` (see `build.rs`); release jobs set `HYPRVIEW_RELEASE=1` to suppress
+it.
 
 ## Tests
 

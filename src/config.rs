@@ -327,14 +327,14 @@ impl Config {
             let legacy = legacy_config_path();
             if legacy.exists() {
                 if std::fs::copy(&legacy, &path).is_ok() {
-                    eprintln!(
-                        "hyprview: migrated config from {} to {}",
+                    crate::cli::info(format_args!(
+                        "migrated config from {} to {}",
                         legacy.display(),
                         path.display()
-                    );
+                    ));
                 }
             } else if std::fs::write(&path, EXAMPLE_CONFIG).is_ok() {
-                eprintln!("hyprview: created default config at {}", path.display());
+                crate::cli::info(format_args!("created default config at {}", path.display()));
             }
         }
 
@@ -348,7 +348,10 @@ impl Config {
         match toml::from_str::<Config>(&text) {
             Ok(c) => c,
             Err(e) => {
-                eprintln!("hyprview: config parse error in {}: {e}", path.display());
+                crate::cli::error(format_args!(
+                    "config parse error in {}: {e}",
+                    path.display()
+                ));
                 Self::default()
             }
         }
@@ -426,7 +429,9 @@ impl Config {
         };
         for (key, val) in &root {
             if !known_sections.contains(&key.as_str()) {
-                eprintln!("hyprview: config warning in {path}: unknown section [{key}]");
+                crate::cli::warn(format_args!(
+                    "config warning in {path}: unknown section [{key}]"
+                ));
                 continue;
             }
             if let toml::Value::Table(section) = val {
@@ -437,9 +442,9 @@ impl Config {
                     .unwrap_or(&[]);
                 for field in section.keys() {
                     if !known.contains(&field.as_str()) {
-                        eprintln!(
-                            "hyprview: config warning in {path}: unknown key [{key}].{field}"
-                        );
+                        crate::cli::warn(format_args!(
+                            "config warning in {path}: unknown key [{key}].{field}"
+                        ));
                     }
                 }
             }

@@ -1,3 +1,4 @@
+mod cli;
 mod config;
 mod icons;
 mod ipc;
@@ -1615,21 +1616,10 @@ fn send_toggle() {
 }
 
 fn main() {
-    let mut no_preview = false;
-    let mut allow_mouse = false;
-    for arg in std::env::args().skip(1) {
-        match arg.as_str() {
-            "--toggle" => {
-                send_toggle();
-                std::process::exit(0);
-            }
-            "--no-preview" => no_preview = true,
-            "--allow-mouse" => allow_mouse = true,
-            _ => {
-                eprintln!("Usage: hyprview [--toggle] [--no-preview] [--allow-mouse]");
-                std::process::exit(1);
-            }
-        }
+    let opts = cli::options();
+    if opts.toggle {
+        send_toggle();
+        return;
     }
 
     let _lock = match try_lock_instance() {
@@ -1668,7 +1658,7 @@ fn main() {
     let qh = eq.handle();
 
     let config = Config::load();
-    let mut state = AppState::new(no_preview, allow_mouse, config);
+    let mut state = AppState::new(opts.no_preview, opts.allow_mouse, config);
 
     // Register registry listener and perform two roundtrips to discover all globals
     conn.display().get_registry(&qh, ());
@@ -1676,21 +1666,21 @@ fn main() {
     eq.roundtrip(&mut state).expect("Wayland roundtrip failed");
 
     if state.compositor.is_none() || state.shm.is_none() || state.layer_shell.is_none() {
-        eprintln!("hyprview: missing required Wayland globals");
+        cli::error(format_args!("missing required Wayland globals"));
         std::process::exit(1);
     }
 
     if state.toplevel_export.is_none() && !state.no_preview {
-        eprintln!(
-            "hyprview: hyprland-toplevel-export protocol unavailable; \
+        cli::warn(format_args!(
+            "hyprland-toplevel-export protocol unavailable; \
              window previews disabled (colored rectangles will be used)"
-        );
+        ));
     }
 
-    eprintln!(
-        "hyprview: daemon running on {} (SIGUSR1 to toggle, SIGHUP to reload config)",
+    cli::info(format_args!(
+        "daemon running on {} (SIGUSR1 to toggle, SIGHUP to reload config)",
         ipc::compositor().name()
-    );
+    ));
 
     let display_fd = conn.as_fd().as_raw_fd();
 
@@ -1767,7 +1757,7 @@ fn main() {
                 state.select_workspace_by_name(selected_name.as_deref());
                 state.needs_redraw = true;
             }
-            eprintln!("hyprview: config reloaded");
+            cli::info(format_args!("config reloaded"));
         }
 
         if G_TOGGLE.swap(false, Ordering::Relaxed) {
