@@ -186,6 +186,16 @@ bindsym $mod+Tab exec hyprview --toggle
 | `--toggle` | Send `SIGUSR1` to the running daemon and exit |
 | `--no-preview` | Skip thumbnails and draw coloured placeholder rectangles |
 | `--allow-mouse` | Enable mouse hover, click, and right-click support |
+| `-h`, `--help` | Print usage and exit |
+| `-V`, `--version` | Print the version and exit |
+
+CLI output is colourised when the matching stream is a terminal. Set
+`NO_COLOR` to any non-empty value to disable colour, for example when capturing
+logs.
+
+`--version` prints just the release number for a build made from the matching
+`vX.Y.Z` tag. Local and in-between builds append the short commit id, for
+example `hyprview 0.2.0 (a5a668f)`; uncommitted changes add `-dirty`.
 
 Flags can be combined, for example:
 
