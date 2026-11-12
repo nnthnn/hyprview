@@ -1125,6 +1125,13 @@ impl Dispatch<zwlr_layer_surface_v1::ZwlrLayerSurfaceV1, ()> for AppState {
                 state.width = width;
                 state.height = height;
                 state.configured = true;
+                // A Configure can also arrive later, for example when the
+                // output is resized while the overlay is visible. The first
+                // one happens before `visible` flips on and is drawn by the
+                // show path, so only ask for a repaint once we're on screen.
+                if state.visible {
+                    state.needs_redraw = true;
+                }
             }
             zwlr_layer_surface_v1::Event::Closed => {
                 state.should_close = true;
@@ -1276,6 +1283,7 @@ fn hide(state: &mut AppState) {
     state.configured = false;
     state.visible = false;
     state.filter.clear();
+    state.filter_match = None;
     state.tab_target = None;
     state.workspaces.clear();
     state.thumbnails.clear();
@@ -2382,6 +2390,7 @@ mod tests {
         st.visible = true;
         st.shift_held = true;
         st.hovered_window = Some(10);
+        st.filter_match = Some(10);
         st.pointer_x = 12.0;
         st.pointer_y = 34.0;
         st.cursor_is_pointer = true;
@@ -2391,6 +2400,7 @@ mod tests {
         assert!(!st.visible);
         assert!(!st.shift_held);
         assert_eq!(st.hovered_window, None);
+        assert_eq!(st.filter_match, None);
         assert_eq!(st.pointer_x, 0.0);
         assert_eq!(st.pointer_y, 0.0);
         assert!(!st.cursor_is_pointer);

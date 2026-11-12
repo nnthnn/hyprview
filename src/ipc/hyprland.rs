@@ -4,6 +4,10 @@ use std::os::unix::net::UnixStream;
 
 use super::{ClientInfo, WorkspaceInfo};
 
+// The event loop is single-threaded, so every socket operation needs a bound:
+// a wedged compositor must not stall overlay toggling or input indefinitely.
+const IPC_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(2);
+
 fn socket_path() -> Option<String> {
     let xdg = std::env::var("XDG_RUNTIME_DIR").ok()?;
     let sig = std::env::var("HYPRLAND_INSTANCE_SIGNATURE").ok()?;
@@ -13,9 +17,8 @@ fn socket_path() -> Option<String> {
 fn hypr_request(cmd: &str) -> Option<String> {
     let path = socket_path()?;
     let mut stream = UnixStream::connect(&path).ok()?;
-    stream
-        .set_read_timeout(Some(std::time::Duration::from_secs(2)))
-        .ok();
+    stream.set_read_timeout(Some(IPC_TIMEOUT)).ok();
+    stream.set_write_timeout(Some(IPC_TIMEOUT)).ok();
     let msg = format!("j/{cmd}");
     stream.write_all(msg.as_bytes()).ok()?;
     stream.shutdown(Shutdown::Write).ok();
@@ -236,6 +239,8 @@ fn dispatch(cmd: &str) {
     let Ok(mut stream) = UnixStream::connect(&path) else {
         return;
     };
+    stream.set_read_timeout(Some(IPC_TIMEOUT)).ok();
+    stream.set_write_timeout(Some(IPC_TIMEOUT)).ok();
     let msg = format!("/dispatch {cmd}");
     let _ = stream.write_all(msg.as_bytes());
     let _ = stream.shutdown(Shutdown::Write);
