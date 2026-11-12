@@ -8,8 +8,3 @@ into documentation-only changes.
 
 - [ ] Support XPM icons in `resolve_icon()`. (Icon cache invalidation for
       theme/size changes is done.)
-
-## Docs / packaging follow-ups
-
-- [ ] Make README images and links that are excluded from the crate package
-      work on crates.io (for example by using absolute URLs).

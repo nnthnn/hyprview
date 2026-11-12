@@ -24,6 +24,19 @@ impl Rect {
     }
 }
 
+/// Number of columns in the workspace grid.
+///
+/// `configured == 0` means automatic: a square grid (`ceil(sqrt(n))`). A
+/// non-zero value is an upper bound rather than a fixed width, so a handful of
+/// workspaces still arrange in a square while large counts stop growing.
+pub fn workspace_grid_cols(workspaces: usize, configured: usize) -> usize {
+    let auto = ((workspaces as f64).sqrt().ceil() as usize).max(1);
+    match configured {
+        0 => auto,
+        max => auto.min(max).max(1),
+    }
+}
+
 /// Final on-screen rectangles for `clients` inside `area`, in client order.
 ///
 /// `gap` is the visual spacing between adjacent thumbnails and `wrap` selects
@@ -173,6 +186,32 @@ mod tests {
             w: 464.0,
             h: 280.0,
         }
+    }
+
+    #[test]
+    fn grid_cols_uses_a_square_when_unconfigured() {
+        assert_eq!(workspace_grid_cols(1, 0), 1);
+        assert_eq!(workspace_grid_cols(4, 0), 2);
+        assert_eq!(workspace_grid_cols(9, 0), 3);
+        assert_eq!(workspace_grid_cols(10, 0), 4);
+    }
+
+    #[test]
+    fn grid_cols_caps_the_automatic_layout() {
+        // n=3 wants two columns; a cap of 4 must not force three in one row.
+        assert_eq!(workspace_grid_cols(3, 4), 2);
+        // n=9 wants three; a cap of 2 reflows into more rows.
+        assert_eq!(workspace_grid_cols(9, 2), 2);
+        // n=16 wants four, exactly the cap.
+        assert_eq!(workspace_grid_cols(16, 4), 4);
+        // A cap of one always means a single column.
+        assert_eq!(workspace_grid_cols(9, 1), 1);
+    }
+
+    #[test]
+    fn grid_cols_never_returns_zero() {
+        assert_eq!(workspace_grid_cols(0, 0), 1);
+        assert_eq!(workspace_grid_cols(0, 4), 1);
     }
 
     #[test]

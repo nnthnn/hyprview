@@ -474,11 +474,7 @@ impl AppState {
     }
 
     fn grid_cols(&self, n: usize) -> usize {
-        if self.config.appearance.columns > 0 {
-            self.config.appearance.columns.min(n)
-        } else {
-            ((n as f64).sqrt().ceil() as usize).max(1)
-        }
+        layout::workspace_grid_cols(n, self.config.appearance.columns)
     }
 
     fn init_cursor(&mut self, conn: &Connection, qh: &QueueHandle<Self>) {
@@ -665,21 +661,8 @@ impl AppState {
 
         // Close window: target hovered window first, then single filter match
         if self.keys.close_window.contains(&k) {
-            let addr = self.hovered_window.or(self.filter_match);
-            if let Some(addr) = addr {
-                ipc::close_window(addr);
-                for ws in &mut self.workspaces {
-                    ws.clients.retain(|c| c.address != addr);
-                }
-                if self.hovered_window == Some(addr) {
-                    self.hovered_window = None;
-                }
-                if self.tab_target == Some(addr) {
-                    self.tab_target = None;
-                }
-                self.update_filter_state();
-                self.clamp_selected();
-                self.needs_redraw = true;
+            if let Some(addr) = self.hovered_window.or(self.filter_match) {
+                self.close_window(addr);
             }
             return false;
         }
@@ -742,6 +725,30 @@ impl AppState {
             ipc::switch_workspace(target);
         }
         true
+    }
+
+    /// Ask the compositor to close `address` and drop it from the local model so
+    /// the overlay updates without waiting for the next workspace refresh.
+    fn close_window(&mut self, address: u64) {
+        ipc::close_window(address);
+        self.forget_window(address);
+    }
+
+    /// Apply a close locally. Kept separate from the IPC call so the state
+    /// transition can be tested without a compositor.
+    fn forget_window(&mut self, address: u64) {
+        for ws in &mut self.workspaces {
+            ws.clients.retain(|c| c.address != address);
+        }
+        if self.hovered_window == Some(address) {
+            self.hovered_window = None;
+        }
+        if self.tab_target == Some(address) {
+            self.tab_target = None;
+        }
+        self.update_filter_state();
+        self.clamp_selected();
+        self.needs_redraw = true;
     }
 
     fn workspace_at(&self, x: f64, y: f64) -> Option<usize> {
@@ -1054,6 +1061,11 @@ impl Dispatch<wl_pointer::WlPointer, ()> for AppState {
                     return;
                 }
                 match button {
+                    BTN_LEFT if state.shift_held => {
+                        if state.move_active_window_to_selected() {
+                            state.should_close = true;
+                        }
+                    }
                     BTN_LEFT => {
                         let win = state.window_at(state.pointer_x, state.pointer_y);
                         if let Some(addr) = win {
@@ -1071,8 +1083,12 @@ impl Dispatch<wl_pointer::WlPointer, ()> for AppState {
                         }
                         state.should_close = true;
                     }
-                    BTN_RIGHT if state.move_active_window_to_selected() => {
-                        state.should_close = true;
+                    BTN_RIGHT => {
+                        // Closing is a multi-step action, so keep the overlay
+                        // open after each close instead of dismissing it.
+                        if let Some(addr) = state.window_at(state.pointer_x, state.pointer_y) {
+                            state.close_window(addr);
+                        }
                     }
                     _ => {}
                 }
@@ -1709,6 +1725,13 @@ fn main() {
         fd
     };
 
+    // Users who bind hyprview directly as their overview key (rather than
+    // running it as an autostart daemon and toggling it) can ask for the
+    // first overlay to open without a separate `--toggle` call.
+    if state.config.behavior.show_on_startup {
+        G_TOGGLE.store(true, Ordering::Relaxed);
+    }
+
     'main: loop {
         if G_QUIT.load(Ordering::Relaxed) {
             break;
@@ -2293,6 +2316,24 @@ mod tests {
         st.update_filter_state();
 
         assert_eq!(st.selected, 1);
+    }
+
+    #[test]
+    fn forgetting_a_closed_window_clears_its_transient_selection() {
+        let mut st = test_state(false);
+        st.workspaces = vec![workspace(
+            "1",
+            vec![client(10, "foot", "term"), client(20, "firefox", "web")],
+        )];
+        st.hovered_window = Some(10);
+        st.tab_target = Some(10);
+
+        st.forget_window(10);
+
+        assert!(st.workspaces[0].clients.iter().all(|c| c.address != 10));
+        assert_eq!(st.hovered_window, None);
+        assert_eq!(st.tab_target, None);
+        assert!(st.needs_redraw);
     }
 
     #[test]

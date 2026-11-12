@@ -294,11 +294,7 @@ pub fn draw(p: DrawParams<'_>) -> Vec<u8> {
     }
 
     let n = workspaces.len();
-    let cols = if cfg.appearance.columns > 0 {
-        cfg.appearance.columns.min(n)
-    } else {
-        ((n as f64).sqrt().ceil() as usize).max(1)
-    };
+    let cols = layout::workspace_grid_cols(n, cfg.appearance.columns);
     let rows = n.div_ceil(cols);
     let pad = cfg.appearance.card_padding;
 

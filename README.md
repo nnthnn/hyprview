@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.svg" width="120" alt="Hyprview logo">
+  <img src="https://raw.githubusercontent.com/nnthnn/hyprview/main/assets/logo.svg" width="120" alt="Hyprview logo">
 </p>
 
 <h1 align="center">hyprview</h1>
@@ -12,12 +12,12 @@
 <p align="center">
   <a href="https://github.com/nnthnn/hyprview/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/nnthnn/hyprview/actions/workflows/ci.yml/badge.svg"></a>
   <a href="https://nnthnn.github.io/hyprview/"><img alt="Website" src="https://img.shields.io/badge/website-hyprview-8fa8ff"></a>
-  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
+  <a href="https://github.com/nnthnn/hyprview/blob/main/LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
   <img alt="Hyprland 0.55+" src="https://img.shields.io/badge/Hyprland-0.55%2B-58d3f7">
 </p>
 
 <p align="center">
-  <img src="demo.gif" width="720" alt="hyprview demo">
+  <img src="https://raw.githubusercontent.com/nnthnn/hyprview/main/demo.gif" width="720" alt="hyprview demo">
 </p>
 
 hyprview runs as a small background daemon. On demand it puts up a fullscreen
@@ -37,7 +37,7 @@ opt in, the mouse.
 - **Close windows** with `Delete`, targeting the hovered window or single filter match
 - **App icons** on thumbnails, resolved from the icon theme and `.desktop` files
 - **Hover tooltip** with the app icon, name, class, and window title
-- **Optional mouse support** — hover to select, left-click to focus/switch, right-click to move
+- **Optional mouse support** — hover to select, left-click to focus/switch, Shift+left-click to move, right-click to close
 - **Config hot reload** when the config file changes (or on `SIGHUP`)
 - **Daemon lifetime** with a single-instance lock and near-zero CPU while hidden
 - **No process spawning** — workspace/window operations go straight over the compositor's IPC socket
@@ -148,6 +148,11 @@ pkill -SIGHUP hyprview
 the running daemon without a process lookup. Starting a second `hyprview`
 instance is a no-op — the existing instance keeps running.
 
+To open the overlay immediately when the daemon starts, set
+`show_on_startup = true` in the `[behavior]` section of the config. This is
+handy when binding `hyprview` directly to an overview key instead of running it
+as an autostart daemon.
+
 ### Hyprland config
 
 Hyprland 0.55+ reads `~/.config/hypr/hyprland.lua`. If you have migrated to the
@@ -216,7 +221,7 @@ hyprview --no-preview --allow-mouse &
 | `m` | Move the active window to the selected workspace (when not filtering) |
 | Delete | Close the hovered window, or the single filter match |
 | Escape | Clear the Tab highlight, then the filter, then close the overlay |
-| Mouse (with `--allow-mouse`) | Hover to select and show the tooltip; left-click a window to focus it, a card to switch workspace, or outside to close; right-click to move the active window to the selected workspace |
+| Mouse (with `--allow-mouse`) | Hover to select and show the tooltip; left-click a window to focus it, a card to switch workspace, or outside to close; Shift+left-click to move the active window to the hovered workspace; right-click a window to close it |
 
 `hjkl` navigation is disabled while a filter is active; the arrow keys always
 work. Number keys only jump when the filter is empty.
@@ -225,27 +230,34 @@ work. Number keys only jump when the filter is empty.
 
 hyprview reads `$XDG_CONFIG_HOME/hyprview/config.toml`, falling back to
 `~/.config/hyprview/config.toml`. Every key is optional. On first run the file
-is seeded from the bundled [`config.example.toml`](config.example.toml); an
-existing pre-rename `~/.config/hyprexpose/config.toml` is migrated automatically.
+is seeded from the bundled
+[`config.example.toml`](https://github.com/nnthnn/hyprview/blob/main/config.example.toml);
+an existing pre-rename `~/.config/hyprexpose/config.toml` is migrated
+automatically.
 
 The file is watched for changes and reloaded live. You can also send `SIGHUP`
 to force a reload. Unknown sections and keys are reported on stderr so typos
 don't silently fall back to defaults.
 
-See [`docs/configuration.md`](docs/configuration.md) for the full reference, or
-[`config.example.toml`](config.example.toml) for the annotated file.
+See
+[`docs/configuration.md`](https://github.com/nnthnn/hyprview/blob/main/docs/configuration.md)
+for the full reference, or
+[`config.example.toml`](https://github.com/nnthnn/hyprview/blob/main/config.example.toml)
+for the annotated file.
 
 ## Contributing
 
 Bug reports and pull requests are welcome. See
-[`CONTRIBUTING.md`](CONTRIBUTING.md) for the short version, and
-[`docs/development.md`](docs/development.md) for architecture notes, build and
-test commands, packaging, and the release process. Release notes are generated
-on the [GitHub releases page](https://github.com/nnthnn/hyprview/releases).
+[`CONTRIBUTING.md`](https://github.com/nnthnn/hyprview/blob/main/CONTRIBUTING.md)
+for the short version, and
+[`docs/development.md`](https://github.com/nnthnn/hyprview/blob/main/docs/development.md)
+for architecture notes, build and test commands, packaging, and the release
+process. Release notes are generated on the
+[GitHub releases page](https://github.com/nnthnn/hyprview/releases).
 
 ## License
 
-MIT — see [`LICENSE`](LICENSE).
+MIT — see [`LICENSE`](https://github.com/nnthnn/hyprview/blob/main/LICENSE).
 
 hyprview began as a fork of
 [hyprexpose](https://github.com/ThiagoAVicente/hyprexpose) by ThiagoAVicente.
