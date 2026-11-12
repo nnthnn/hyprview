@@ -83,6 +83,17 @@ const XKB_KEY_9: u32 = 0x0039;
 const KEYCODE_LEFTSHIFT: u32 = 42;
 const KEYCODE_RIGHTSHIFT: u32 = 54;
 
+// XKB modifier masks as reported by wl_keyboard::Event::Modifiers. Shift is
+// deliberately not here: it is part of Tab cycling, while the others mean the
+// user is reaching for a compositor shortcut and should not trigger actions.
+const XKB_MOD_CONTROL: u32 = 1 << 2;
+const XKB_MOD_ALT: u32 = 1 << 3; // Mod1
+const XKB_MOD_SUPER: u32 = 1 << 6; // Mod4
+
+fn shortcut_modifiers_held(modifiers: u32) -> bool {
+    modifiers & (XKB_MOD_CONTROL | XKB_MOD_ALT | XKB_MOD_SUPER) != 0
+}
+
 fn key_name_to_keysym(name: &str) -> Option<u32> {
     match name {
         "Escape" => Some(XKB_KEY_ESCAPE),
@@ -281,6 +292,9 @@ struct AppState {
 
     // Tab-cycle
     shift_held: bool,
+    /// Raw XKB modifier mask from the keyboard, used to keep Ctrl/Alt/Super
+    /// shortcuts from firing overlay actions.
+    modifiers: u32,
     tab_target: Option<u64>,
 
     // Mouse support (only active when --allow-mouse is set).
@@ -406,6 +420,7 @@ impl AppState {
             filter: String::new(),
             filter_match: None,
             shift_held: false,
+            modifiers: 0,
             tab_target: None,
             allow_mouse,
             pointer: None,
@@ -969,22 +984,37 @@ impl Dispatch<wl_keyboard::WlKeyboard, ()> for AppState {
         _: &Connection,
         _: &QueueHandle<Self>,
     ) {
-        if let wl_keyboard::Event::Key {
-            key,
-            state: WEnum::Value(key_state),
-            ..
-        } = event
-        {
-            if key == KEYCODE_LEFTSHIFT || key == KEYCODE_RIGHTSHIFT {
-                state.shift_held = key_state == wl_keyboard::KeyState::Pressed;
-                return;
-            }
-            if key_state == wl_keyboard::KeyState::Pressed {
-                let keysym = keycode_to_keysym(key);
-                if keysym != 0 && state.handle_key(keysym) {
-                    state.should_close = true;
+        match event {
+            wl_keyboard::Event::Key {
+                key,
+                state: WEnum::Value(key_state),
+                ..
+            } => {
+                if key == KEYCODE_LEFTSHIFT || key == KEYCODE_RIGHTSHIFT {
+                    state.shift_held = key_state == wl_keyboard::KeyState::Pressed;
+                    return;
+                }
+                if key_state == wl_keyboard::KeyState::Pressed {
+                    // A compositor shortcut can leave Ctrl/Alt/Super held while
+                    // the overlay has focus. Without this guard, Ctrl+M would
+                    // move a window and Ctrl+Delete would close one.
+                    if shortcut_modifiers_held(state.modifiers) {
+                        return;
+                    }
+                    let keysym = keycode_to_keysym(key);
+                    if keysym != 0 && state.handle_key(keysym) {
+                        state.should_close = true;
+                    }
                 }
             }
+            wl_keyboard::Event::Modifiers {
+                mods_depressed,
+                mods_latched,
+                ..
+            } => {
+                state.modifiers = mods_depressed | mods_latched;
+            }
+            _ => {}
         }
     }
 }
@@ -1290,6 +1320,7 @@ fn hide(state: &mut AppState) {
     // Reset input state that only makes sense while the overlay is up, so the
     // next show can't render a stale tooltip or start a reversed Tab cycle.
     state.shift_held = false;
+    state.modifiers = 0;
     state.hovered_window = None;
     state.pointer_x = 0.0;
     state.pointer_y = 0.0;
@@ -2145,6 +2176,17 @@ mod tests {
         assert_eq!(key_name_to_keysym("Tab"), Some(XKB_KEY_TAB));
     }
 
+    #[test]
+    fn shortcut_modifiers_block_actions_but_shift_does_not() {
+        assert!(!shortcut_modifiers_held(0));
+        assert!(!shortcut_modifiers_held(1 << 0)); // Shift
+        assert!(!shortcut_modifiers_held(1 << 1)); // Caps Lock
+        assert!(shortcut_modifiers_held(XKB_MOD_CONTROL));
+        assert!(shortcut_modifiers_held(XKB_MOD_ALT));
+        assert!(shortcut_modifiers_held(XKB_MOD_SUPER));
+        assert!(shortcut_modifiers_held(XKB_MOD_CONTROL | (1 << 0)));
+    }
+
     // ── visible workspace mapping ────────────────────────────────────────────
 
     fn test_state(show_empty: bool) -> AppState {
@@ -2389,6 +2431,7 @@ mod tests {
         let mut st = test_state(false);
         st.visible = true;
         st.shift_held = true;
+        st.modifiers = XKB_MOD_CONTROL;
         st.hovered_window = Some(10);
         st.filter_match = Some(10);
         st.pointer_x = 12.0;
@@ -2399,6 +2442,7 @@ mod tests {
 
         assert!(!st.visible);
         assert!(!st.shift_held);
+        assert_eq!(st.modifiers, 0);
         assert_eq!(st.hovered_window, None);
         assert_eq!(st.filter_match, None);
         assert_eq!(st.pointer_x, 0.0);
