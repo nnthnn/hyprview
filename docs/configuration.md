@@ -32,7 +32,7 @@ same options with inline comments.
 | `select_border` | `3.0` | Selection highlight border width (px) |
 | `window_gap` | `4.0` | Gap between adjacent window thumbnails (px) |
 | `wrap_windows` | `true` | Reflow windows into a wrapping grid per card instead of reproducing their geometry |
-| `columns` | `0` | Fixed number of grid columns; `0` = auto (square root of workspace count) |
+| `columns` | `0` | Maximum grid columns; `0` = no limit (automatic square grid) |
 | `show_app_icons` | `true` | Draw app icons on thumbnails and tooltips |
 | `icon_size` | `20.0` | App icon size (px), clamped to 8–256 |
 
@@ -66,6 +66,7 @@ Colors accept `"#rrggbb"`, `"#rrggbbaa"`, or `[r, g, b, a]` with values in
 | `switch_on_move` | `true` | After `m`, switch to the destination workspace and close |
 | `allow_mouse` | `false` | Enable mouse navigation; `--allow-mouse` forces it on |
 | `show_empty_workspaces` | `false` | Show cards for workspaces with no windows |
+| `show_on_startup` | `false` | Open the overlay as soon as the daemon starts |
 
 ## `[keybindings]`
 

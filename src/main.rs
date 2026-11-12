@@ -83,6 +83,17 @@ const XKB_KEY_9: u32 = 0x0039;
 const KEYCODE_LEFTSHIFT: u32 = 42;
 const KEYCODE_RIGHTSHIFT: u32 = 54;
 
+// XKB modifier masks as reported by wl_keyboard::Event::Modifiers. Shift is
+// deliberately not here: it is part of Tab cycling, while the others mean the
+// user is reaching for a compositor shortcut and should not trigger actions.
+const XKB_MOD_CONTROL: u32 = 1 << 2;
+const XKB_MOD_ALT: u32 = 1 << 3; // Mod1
+const XKB_MOD_SUPER: u32 = 1 << 6; // Mod4
+
+fn shortcut_modifiers_held(modifiers: u32) -> bool {
+    modifiers & (XKB_MOD_CONTROL | XKB_MOD_ALT | XKB_MOD_SUPER) != 0
+}
+
 fn key_name_to_keysym(name: &str) -> Option<u32> {
     match name {
         "Escape" => Some(XKB_KEY_ESCAPE),
@@ -281,6 +292,9 @@ struct AppState {
 
     // Tab-cycle
     shift_held: bool,
+    /// Raw XKB modifier mask from the keyboard, used to keep Ctrl/Alt/Super
+    /// shortcuts from firing overlay actions.
+    modifiers: u32,
     tab_target: Option<u64>,
 
     // Mouse support (only active when --allow-mouse is set).
@@ -406,6 +420,7 @@ impl AppState {
             filter: String::new(),
             filter_match: None,
             shift_held: false,
+            modifiers: 0,
             tab_target: None,
             allow_mouse,
             pointer: None,
@@ -474,11 +489,7 @@ impl AppState {
     }
 
     fn grid_cols(&self, n: usize) -> usize {
-        if self.config.appearance.columns > 0 {
-            self.config.appearance.columns.min(n)
-        } else {
-            ((n as f64).sqrt().ceil() as usize).max(1)
-        }
+        layout::workspace_grid_cols(n, self.config.appearance.columns)
     }
 
     fn init_cursor(&mut self, conn: &Connection, qh: &QueueHandle<Self>) {
@@ -665,21 +676,8 @@ impl AppState {
 
         // Close window: target hovered window first, then single filter match
         if self.keys.close_window.contains(&k) {
-            let addr = self.hovered_window.or(self.filter_match);
-            if let Some(addr) = addr {
-                ipc::close_window(addr);
-                for ws in &mut self.workspaces {
-                    ws.clients.retain(|c| c.address != addr);
-                }
-                if self.hovered_window == Some(addr) {
-                    self.hovered_window = None;
-                }
-                if self.tab_target == Some(addr) {
-                    self.tab_target = None;
-                }
-                self.update_filter_state();
-                self.clamp_selected();
-                self.needs_redraw = true;
+            if let Some(addr) = self.hovered_window.or(self.filter_match) {
+                self.close_window(addr);
             }
             return false;
         }
@@ -742,6 +740,30 @@ impl AppState {
             ipc::switch_workspace(target);
         }
         true
+    }
+
+    /// Ask the compositor to close `address` and drop it from the local model so
+    /// the overlay updates without waiting for the next workspace refresh.
+    fn close_window(&mut self, address: u64) {
+        ipc::close_window(address);
+        self.forget_window(address);
+    }
+
+    /// Apply a close locally. Kept separate from the IPC call so the state
+    /// transition can be tested without a compositor.
+    fn forget_window(&mut self, address: u64) {
+        for ws in &mut self.workspaces {
+            ws.clients.retain(|c| c.address != address);
+        }
+        if self.hovered_window == Some(address) {
+            self.hovered_window = None;
+        }
+        if self.tab_target == Some(address) {
+            self.tab_target = None;
+        }
+        self.update_filter_state();
+        self.clamp_selected();
+        self.needs_redraw = true;
     }
 
     fn workspace_at(&self, x: f64, y: f64) -> Option<usize> {
@@ -962,22 +984,37 @@ impl Dispatch<wl_keyboard::WlKeyboard, ()> for AppState {
         _: &Connection,
         _: &QueueHandle<Self>,
     ) {
-        if let wl_keyboard::Event::Key {
-            key,
-            state: WEnum::Value(key_state),
-            ..
-        } = event
-        {
-            if key == KEYCODE_LEFTSHIFT || key == KEYCODE_RIGHTSHIFT {
-                state.shift_held = key_state == wl_keyboard::KeyState::Pressed;
-                return;
-            }
-            if key_state == wl_keyboard::KeyState::Pressed {
-                let keysym = keycode_to_keysym(key);
-                if keysym != 0 && state.handle_key(keysym) {
-                    state.should_close = true;
+        match event {
+            wl_keyboard::Event::Key {
+                key,
+                state: WEnum::Value(key_state),
+                ..
+            } => {
+                if key == KEYCODE_LEFTSHIFT || key == KEYCODE_RIGHTSHIFT {
+                    state.shift_held = key_state == wl_keyboard::KeyState::Pressed;
+                    return;
+                }
+                if key_state == wl_keyboard::KeyState::Pressed {
+                    // A compositor shortcut can leave Ctrl/Alt/Super held while
+                    // the overlay has focus. Without this guard, Ctrl+M would
+                    // move a window and Ctrl+Delete would close one.
+                    if shortcut_modifiers_held(state.modifiers) {
+                        return;
+                    }
+                    let keysym = keycode_to_keysym(key);
+                    if keysym != 0 && state.handle_key(keysym) {
+                        state.should_close = true;
+                    }
                 }
             }
+            wl_keyboard::Event::Modifiers {
+                mods_depressed,
+                mods_latched,
+                ..
+            } => {
+                state.modifiers = mods_depressed | mods_latched;
+            }
+            _ => {}
         }
     }
 }
@@ -1054,6 +1091,11 @@ impl Dispatch<wl_pointer::WlPointer, ()> for AppState {
                     return;
                 }
                 match button {
+                    BTN_LEFT if state.shift_held => {
+                        if state.move_active_window_to_selected() {
+                            state.should_close = true;
+                        }
+                    }
                     BTN_LEFT => {
                         let win = state.window_at(state.pointer_x, state.pointer_y);
                         if let Some(addr) = win {
@@ -1071,8 +1113,12 @@ impl Dispatch<wl_pointer::WlPointer, ()> for AppState {
                         }
                         state.should_close = true;
                     }
-                    BTN_RIGHT if state.move_active_window_to_selected() => {
-                        state.should_close = true;
+                    BTN_RIGHT => {
+                        // Closing is a multi-step action, so keep the overlay
+                        // open after each close instead of dismissing it.
+                        if let Some(addr) = state.window_at(state.pointer_x, state.pointer_y) {
+                            state.close_window(addr);
+                        }
                     }
                     _ => {}
                 }
@@ -1109,6 +1155,13 @@ impl Dispatch<zwlr_layer_surface_v1::ZwlrLayerSurfaceV1, ()> for AppState {
                 state.width = width;
                 state.height = height;
                 state.configured = true;
+                // A Configure can also arrive later, for example when the
+                // output is resized while the overlay is visible. The first
+                // one happens before `visible` flips on and is drawn by the
+                // show path, so only ask for a repaint once we're on screen.
+                if state.visible {
+                    state.needs_redraw = true;
+                }
             }
             zwlr_layer_surface_v1::Event::Closed => {
                 state.should_close = true;
@@ -1260,12 +1313,14 @@ fn hide(state: &mut AppState) {
     state.configured = false;
     state.visible = false;
     state.filter.clear();
+    state.filter_match = None;
     state.tab_target = None;
     state.workspaces.clear();
     state.thumbnails.clear();
     // Reset input state that only makes sense while the overlay is up, so the
     // next show can't render a stale tooltip or start a reversed Tab cycle.
     state.shift_held = false;
+    state.modifiers = 0;
     state.hovered_window = None;
     state.pointer_x = 0.0;
     state.pointer_y = 0.0;
@@ -1709,6 +1764,13 @@ fn main() {
         fd
     };
 
+    // Users who bind hyprview directly as their overview key (rather than
+    // running it as an autostart daemon and toggling it) can ask for the
+    // first overlay to open without a separate `--toggle` call.
+    if state.config.behavior.show_on_startup {
+        G_TOGGLE.store(true, Ordering::Relaxed);
+    }
+
     'main: loop {
         if G_QUIT.load(Ordering::Relaxed) {
             break;
@@ -2114,6 +2176,17 @@ mod tests {
         assert_eq!(key_name_to_keysym("Tab"), Some(XKB_KEY_TAB));
     }
 
+    #[test]
+    fn shortcut_modifiers_block_actions_but_shift_does_not() {
+        assert!(!shortcut_modifiers_held(0));
+        assert!(!shortcut_modifiers_held(1 << 0)); // Shift
+        assert!(!shortcut_modifiers_held(1 << 1)); // Caps Lock
+        assert!(shortcut_modifiers_held(XKB_MOD_CONTROL));
+        assert!(shortcut_modifiers_held(XKB_MOD_ALT));
+        assert!(shortcut_modifiers_held(XKB_MOD_SUPER));
+        assert!(shortcut_modifiers_held(XKB_MOD_CONTROL | (1 << 0)));
+    }
+
     // ── visible workspace mapping ────────────────────────────────────────────
 
     fn test_state(show_empty: bool) -> AppState {
@@ -2296,6 +2369,24 @@ mod tests {
     }
 
     #[test]
+    fn forgetting_a_closed_window_clears_its_transient_selection() {
+        let mut st = test_state(false);
+        st.workspaces = vec![workspace(
+            "1",
+            vec![client(10, "foot", "term"), client(20, "firefox", "web")],
+        )];
+        st.hovered_window = Some(10);
+        st.tab_target = Some(10);
+
+        st.forget_window(10);
+
+        assert!(st.workspaces[0].clients.iter().all(|c| c.address != 10));
+        assert_eq!(st.hovered_window, None);
+        assert_eq!(st.tab_target, None);
+        assert!(st.needs_redraw);
+    }
+
+    #[test]
     fn filter_change_clears_a_tab_target_it_excludes() {
         let mut st = test_state(false);
         st.workspaces = vec![workspace(
@@ -2340,7 +2431,9 @@ mod tests {
         let mut st = test_state(false);
         st.visible = true;
         st.shift_held = true;
+        st.modifiers = XKB_MOD_CONTROL;
         st.hovered_window = Some(10);
+        st.filter_match = Some(10);
         st.pointer_x = 12.0;
         st.pointer_y = 34.0;
         st.cursor_is_pointer = true;
@@ -2349,7 +2442,9 @@ mod tests {
 
         assert!(!st.visible);
         assert!(!st.shift_held);
+        assert_eq!(st.modifiers, 0);
         assert_eq!(st.hovered_window, None);
+        assert_eq!(st.filter_match, None);
         assert_eq!(st.pointer_x, 0.0);
         assert_eq!(st.pointer_y, 0.0);
         assert!(!st.cursor_is_pointer);

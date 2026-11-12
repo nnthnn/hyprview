@@ -40,8 +40,8 @@ window_gap    = 4.0    # gap between adjacent window thumbnails (px); border sit
 # Set to false to reproduce the compositor's actual window geometry instead.
 wrap_windows = true
 
-# Fixed number of columns in the workspace grid.
-# 0 = auto (square root of the workspace count).
+# Maximum number of columns in the workspace grid.
+# 0 = no limit (automatic square grid based on the workspace count).
 columns = 0
 
 # Draw each window's app icon in the bottom-right corner of its thumbnail.
@@ -128,11 +128,17 @@ switch_on_move = true
 
 # Enable mouse navigation inside the overlay:
 #   - hover a workspace card to select it
-#   - left-click   → switch to that workspace
-#   - right-click  → move the active window to that workspace
+#   - left-click        → focus the window or switch to that card's workspace
+#   - Shift+left-click  → move the active window to the hovered workspace
+#   - right-click       → close the hovered window
 # The `--allow-mouse` CLI flag forces this on regardless of the value here.
 allow_mouse = false
 
 # Show workspace cards that have no open windows.
 # Default is false — empty workspaces are hidden.
 show_empty_workspaces = false
+
+# Open the overlay immediately when the daemon starts. This is useful when
+# binding `hyprview` directly to a key instead of running it as an autostart
+# daemon (a second launch is still a no-op because of the single-instance lock).
+show_on_startup = false

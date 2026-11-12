@@ -88,7 +88,8 @@ pub struct AppearanceConfig {
     /// Reflow windows into a wrapping grid inside each card instead of
     /// reproducing the compositor's window geometry.
     pub wrap_windows: bool,
-    /// Fixed number of columns in the workspace grid. 0 = auto (sqrt of workspace count).
+    /// Maximum number of columns in the workspace grid. 0 = no limit
+    /// (automatic square grid based on the workspace count).
     pub columns: usize,
     /// Base font family used for the hover tooltip (size suffixes are appended automatically).
     pub tooltip_font: String,
@@ -182,11 +183,14 @@ pub struct BehaviorConfig {
     /// After moving a window with 'm', also switch to the destination workspace.
     pub switch_on_move: bool,
     /// Enable mouse navigation (hover to select, left-click to switch,
-    /// right-click to move the active window). Overridden by the
-    /// `--allow-mouse` CLI flag when set.
+    /// Shift+left-click to move the active window, right-click to close).
+    /// Overridden by the `--allow-mouse` CLI flag when set.
     pub allow_mouse: bool,
     /// Show workspace cards that have no windows. Defaults to false.
     pub show_empty_workspaces: bool,
+    /// Open the overlay as soon as the daemon starts instead of waiting for
+    /// `--toggle`/`SIGUSR1`.
+    pub show_on_startup: bool,
 }
 
 impl Default for BehaviorConfig {
@@ -196,6 +200,7 @@ impl Default for BehaviorConfig {
             switch_on_move: true,
             allow_mouse: false,
             show_empty_workspaces: false,
+            show_on_startup: false,
         }
     }
 }
@@ -405,6 +410,7 @@ impl Config {
                     "switch_on_move",
                     "allow_mouse",
                     "show_empty_workspaces",
+                    "show_on_startup",
                 ],
             ),
             (
@@ -517,6 +523,17 @@ mod tests {
         let cfg: AppearanceConfig = toml::from_str(toml_str).unwrap();
         assert!(!cfg.show_app_icons);
         assert_eq!(cfg.icon_size, 32.0);
+    }
+
+    #[test]
+    fn behavior_defaults_to_hidden_on_startup() {
+        assert!(!BehaviorConfig::default().show_on_startup);
+    }
+
+    #[test]
+    fn behavior_parses_show_on_startup_override() {
+        let cfg: BehaviorConfig = toml::from_str("show_on_startup = true").unwrap();
+        assert!(cfg.show_on_startup);
     }
 
     #[test]
